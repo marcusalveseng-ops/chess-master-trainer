@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,13 +23,27 @@ export default function Play() {
     setCurrentPgn(pgn);
   };
 
+  const { mutate: saveGame, isPending } = trpc.gamePersistence.saveGame.useMutation({
+    onSuccess: () => {
+      alert('Game saved successfully!');
+      setGameTitle('');
+      setGameNotes('');
+    },
+    onError: (error) => {
+      alert('Failed to save game: ' + error.message);
+    },
+  });
+
   const handleSaveGame = async () => {
     if (!currentPgn) {
       alert('No game to save');
       return;
     }
-    // TODO: Call tRPC procedure to save game
-    alert('Game saved! (Feature coming soon)');
+    saveGame({
+      pgn: currentPgn,
+      title: gameTitle || 'Untitled Game',
+      notes: gameNotes,
+    });
   };
 
   return (
@@ -99,9 +114,10 @@ export default function Play() {
                 <Button 
                   onClick={handleSaveGame}
                   className="w-full"
+                  disabled={isPending}
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  Save Game
+                  {isPending ? 'Saving...' : 'Save Game'}
                 </Button>
               </CardContent>
             </Card>

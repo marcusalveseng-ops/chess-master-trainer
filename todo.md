@@ -2,8 +2,8 @@
 
 ## Phase 2: Architecture & Database Schema
 - [x] Define database schema (users, games, openings, annotations, progress)
-- [ ] Create tRPC procedures for game management
-- [ ] Set up API integration structure for Lichess and Chess.com
+- [x] Create tRPC procedures for game management
+- [x] Set up API integration structure for Lichess and Chess.com
 
 ## Phase 3: Interactive Chessboard
 - [x] Implement chess engine integration (chess.js)
@@ -36,13 +36,13 @@
 ## Phase 7: User History & Progress
 - [x] Build UI for game history (History page)
 - [x] Build UI for user progress dashboard (Progress page)
-- [ ] Implement game history storage in database
-- [ ] Build personal annotations system
-- [ ] Create key position marking feature
+- [x] Implement game history storage in database
+- [x] Build personal annotations system
+- [x] Create key position marking feature
 - [ ] Add statistics for studied openings and reviewed games
 
 ## Phase 8: Finalization & Deployment
-- [ ] Complete tRPC procedures for all features
+- [x] Complete tRPC procedures for all features
 - [ ] Comprehensive testing of all features
 - [ ] Performance optimization
 - [ ] UI/UX refinement and polish
