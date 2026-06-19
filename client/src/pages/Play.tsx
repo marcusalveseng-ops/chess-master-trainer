@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import ChessBoard from '@/components/ChessBoard';
+import StrategicAnalysisPanel from '@/components/StrategicAnalysisPanel';
 import { useLocation } from 'wouter';
 import { ArrowLeft, Save } from 'lucide-react';
 
@@ -141,19 +142,7 @@ export default function Play() {
                 </Card>
               </TabsContent>
               <TabsContent value="analysis" className="space-y-4">
-                <Card className="border-border/50">
-                  <CardHeader>
-                    <CardTitle className="text-sm">Strategic Tips</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm text-foreground/70">
-                    <p>AI analysis coming soon...</p>
-                    <ul className="mt-3 space-y-2 text-xs">
-                      <li>• Consider forcing trades to enter the endgame</li>
-                      <li>• Play positionally to maintain pressure</li>
-                      <li>• Look for tactical opportunities</li>
-                    </ul>
-                  </CardContent>
-                </Card>
+                <StrategicAnalysisPanel fen={currentFen} />
               </TabsContent>
             </Tabs>
           </div>

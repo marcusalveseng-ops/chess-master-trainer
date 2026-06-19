@@ -5,11 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocation } from 'wouter';
 import { ArrowLeft, Search, Play } from 'lucide-react';
+import GameReplay from '@/components/GameReplay';
 
 export default function MasterGames() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGame, setSelectedGame] = useState<any>(null);
+  const [replayMode, setReplayMode] = useState(false);
 
   const masterGames = [
     {
@@ -52,7 +54,8 @@ export default function MasterGames() {
   );
 
   const handleReplay = (game: any) => {
-    setLocation(`/play?pgn=${encodeURIComponent(game.pgn)}`);
+    setSelectedGame(game);
+    setReplayMode(true);
   };
 
   return (
@@ -74,6 +77,22 @@ export default function MasterGames() {
       </header>
 
       <main className="container py-8">
+        {replayMode && selectedGame ? (
+          <div className="space-y-4">
+            <Button
+              variant="ghost"
+              onClick={() => setReplayMode(false)}
+              className="mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to List
+            </Button>
+            <GameReplay
+              pgn={selectedGame.pgn}
+              title={`${selectedGame.white} vs ${selectedGame.black} - ${selectedGame.event}`}
+            />
+          </div>
+        ) : (
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Search and List */}
           <div className="lg:col-span-2 space-y-6">
@@ -179,6 +198,7 @@ export default function MasterGames() {
             )}
           </div>
         </div>
+        )}
       </main>
     </div>
   );

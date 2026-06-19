@@ -7,6 +7,7 @@ interface ChessBoardProps {
   onGameChange?: (fen: string, pgn: string, moves: any[]) => void;
   initialPgn?: string;
   readOnly?: boolean;
+  moveIndex?: number;
 }
 
 const SQUARE_SIZE = 60;
@@ -17,7 +18,7 @@ const PIECE_UNICODE: Record<string, string> = {
   'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
 };
 
-export default function ChessBoard({ onGameChange, initialPgn, readOnly = false }: ChessBoardProps) {
+export default function ChessBoard({ onGameChange, initialPgn, readOnly = false, moveIndex: externalMoveIndex }: ChessBoardProps) {
   const [game, setGame] = useState<Chess>(() => new Chess());
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [moveIndex, setMoveIndex] = useState(0);
@@ -39,6 +40,9 @@ export default function ChessBoard({ onGameChange, initialPgn, readOnly = false 
     }
   }, [initialPgn]);
 
+  // Use external moveIndex if provided (for replay), otherwise use internal
+  const effectiveMoveIndex = externalMoveIndex !== undefined ? externalMoveIndex : moveIndex;
+
   // Derive current game state at moveIndex
   const currentGame = useMemo(() => {
     const chess = new Chess();
@@ -49,13 +53,13 @@ export default function ChessBoard({ onGameChange, initialPgn, readOnly = false 
     // Get all moves in SAN format
     const moves = chess.moves({ verbose: false }) as string[];
     
-    // Apply moves up to moveIndex
-    for (let i = 0; i < moveIndex && i < moves.length; i++) {
+    // Apply moves up to effectiveMoveIndex
+    for (let i = 0; i < effectiveMoveIndex && i < moves.length; i++) {
       chess.move(moves[i]);
     }
     
     return chess;
-  }, [moveIndex, initialPgn]);
+  }, [effectiveMoveIndex, initialPgn]);
 
   const board = useMemo(() => currentGame.board(), [currentGame]);
 
