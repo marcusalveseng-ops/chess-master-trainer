@@ -6,6 +6,7 @@ import { gamesRouter } from "./routers/games";
 import { chessApiRouter } from "./routers/chess-api";
 import { aiAnalysisRouter } from "./routers/ai-analysis";
 import { gamePersistenceRouter } from "./routers/game-persistence";
+import { pgnIORouter } from "./routers/pgn-io";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -25,6 +26,7 @@ export const appRouter = router({
   chessApi: chessApiRouter,
   aiAnalysis: aiAnalysisRouter,
   gamePersistence: gamePersistenceRouter,
+  pgnIO: pgnIORouter,
 });
 
 export type AppRouter = typeof appRouter;

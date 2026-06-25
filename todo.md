@@ -48,6 +48,16 @@
 - [x] UI/UX refinement and polish
 - [x] Create checkpoint and prepare for publishing
 
+## Phase 9: PGN Import/Export System
+- [x] Create PGN parser utility for importação de partidas
+- [x] Implement PGN exporter com anotações e comentários
+- [x] Build import UI com validação de arquivo
+- [x] Build export UI com opções de formato
+- [x] Create tRPC procedures para import/export
+- [x] Add batch import functionality
+- [x] Implement PGN preview before import
+- [x] Create PGNImportExport component with drag-and-drop
+
 ## Current Status - PRODUCTION READY ✓
 - [x] Database schema created and migrated
 - [x] Color theme (wood palette) applied

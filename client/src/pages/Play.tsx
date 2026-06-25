@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import ChessBoard from '@/components/ChessBoard';
 import StrategicAnalysisPanel from '@/components/StrategicAnalysisPanel';
+import PGNImportExport from '@/components/PGNImportExport';
 import { useLocation } from 'wouter';
 import { ArrowLeft, Save } from 'lucide-react';
 
@@ -17,6 +18,7 @@ export default function Play() {
   const [gameNotes, setGameNotes] = useState('');
   const [currentFen, setCurrentFen] = useState('');
   const [currentPgn, setCurrentPgn] = useState('');
+  const [currentGameId, setCurrentGameId] = useState<number | undefined>();
 
   const handleGameChange = (fen: string, pgn: string, moves: any[]) => {
     setCurrentFen(fen);
@@ -133,6 +135,18 @@ export default function Play() {
                     {currentFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'}
                   </p>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/50">
+              <CardHeader>
+                <CardTitle className="text-lg">Import/Export</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PGNImportExport 
+                  gameId={currentGameId}
+                  onGameImported={(gameId) => setCurrentGameId(gameId)}
+                />
               </CardContent>
             </Card>
 
