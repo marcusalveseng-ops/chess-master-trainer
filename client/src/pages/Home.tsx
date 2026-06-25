@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLoginUrl } from "@/const";
 import { useLocation } from "wouter";
-import { BookOpen, Gamepad2, TrendingUp, Users } from "lucide-react";
+import { BookOpen, Gamepad2, TrendingUp, Users, Zap } from "lucide-react";
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
@@ -174,6 +174,22 @@ export default function Home() {
             <CardContent>
               <p className="text-sm text-foreground/70">
                 Study and replay games from the greatest players throughout chess history.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="cursor-pointer border-border/50 hover:border-primary/50 hover:shadow-lg transition-all"
+            onClick={() => setLocation('/endgame')}
+          >
+            <CardHeader>
+              <Zap className="w-8 h-8 text-primary mb-2" />
+              <CardTitle>Endgame Training</CardTitle>
+              <CardDescription>Master the finish</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-foreground/70">
+                Train classic endgame positions against AI with progressive difficulty.
               </p>
             </CardContent>
           </Card>

@@ -15,6 +15,13 @@
       "when": 1781896610537,
       "tag": "0001_mushy_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1782407407056,
+      "tag": "0002_nervous_kitty_pryde",
+      "breakpoints": true
     }
   ]
 }

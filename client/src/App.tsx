@@ -10,6 +10,7 @@ import Openings from "./pages/Openings";
 import History from "./pages/History";
 import Progress from "./pages/Progress";
 import MasterGames from "./pages/MasterGames";
+import EndgameTraining from "./pages/EndgameTraining";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -19,6 +20,7 @@ function Router() {
       <Route path={"/play"} component={Play} />
       <Route path={"/openings"} component={Openings} />
       <Route path={"/games"} component={MasterGames} />
+      <Route path={"/endgame"} component={EndgameTraining} />
       <Route path={"/history"} component={History} />
       <Route path={"/progress"} component={Progress} />
       <Route path={"/404"} component={NotFound} />
