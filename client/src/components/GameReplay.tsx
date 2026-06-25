@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import { ChevronLeft, ChevronRight, Play, Pause } from 'lucide-react';
 import ChessBoard from './ChessBoard';
-import { trpc } from '@/lib/trpc';
+import { Chess } from 'chess.js';
 
 interface GameReplayProps {
   pgn: string;
@@ -14,13 +13,19 @@ interface GameReplayProps {
 export default function GameReplay({ pgn, title = 'Game Replay' }: GameReplayProps) {
   const [moveIndex, setMoveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [commentary, setCommentary] = useState<string>('');
   const [moveCount, setMoveCount] = useState(0);
 
-  // Parse PGN to get move count
+  // Parse PGN correctly using chess.js
   useEffect(() => {
-    const moves = pgn.match(/\d+\.\s+\S+/g) || [];
-    setMoveCount(moves.length * 2); // Approximate move count
+    try {
+      const chess = new Chess();
+      chess.loadPgn(pgn);
+      const moves = chess.moves({ verbose: false });
+      setMoveCount(moves.length);
+    } catch (e) {
+      console.error('Failed to parse PGN:', e);
+      setMoveCount(0);
+    }
   }, [pgn]);
 
   // Auto-play moves
@@ -50,6 +55,11 @@ export default function GameReplay({ pgn, title = 'Game Replay' }: GameReplayPro
     setIsPlaying(!isPlaying);
   };
 
+  const handleReset = () => {
+    setMoveIndex(0);
+    setIsPlaying(false);
+  };
+
   return (
     <div className="space-y-4">
       <Card className="border-border/50">
@@ -64,6 +74,16 @@ export default function GameReplay({ pgn, title = 'Game Replay' }: GameReplayPro
 
           {/* Controls */}
           <div className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              disabled={moveIndex === 0}
+              title="Reset to start"
+            >
+              ⟲
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
@@ -105,23 +125,11 @@ export default function GameReplay({ pgn, title = 'Game Replay' }: GameReplayPro
           <div className="w-full bg-secondary/20 rounded-lg h-2">
             <div
               className="bg-primary h-2 rounded-lg transition-all"
-              style={{ width: `${(moveIndex / moveCount) * 100}%` }}
+              style={{ width: moveCount > 0 ? `${(moveIndex / moveCount) * 100}%` : '0%' }}
             />
           </div>
         </CardContent>
       </Card>
-
-      {/* Commentary Panel */}
-      {commentary && (
-        <Card className="border-border/50 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="text-base">Move Commentary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-foreground/80">{commentary}</p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
