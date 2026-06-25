@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChevronLeft, ChevronRight, Play, Pause } from 'lucide-react';
 import ChessBoard from './ChessBoard';
+import { PostGameAnalysis } from './PostGameAnalysis';
 import { Chess } from 'chess.js';
 
 interface GameReplayProps {
   pgn: string;
   title?: string;
+  showAnalysis?: boolean;
 }
 
-export default function GameReplay({ pgn, title = 'Game Replay' }: GameReplayProps) {
+export default function GameReplay({ pgn, title = 'Game Replay', showAnalysis = true }: GameReplayProps) {
   const [moveIndex, setMoveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [moveCount, setMoveCount] = useState(0);
@@ -60,76 +63,97 @@ export default function GameReplay({ pgn, title = 'Game Replay' }: GameReplayPro
     setIsPlaying(false);
   };
 
+  const replayContent = (
+    <Card className="border-border/50">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>Move {moveIndex} of {moveCount}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex justify-center">
+          <ChessBoard initialPgn={pgn} moveIndex={moveIndex} readOnly={true} />
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            disabled={moveIndex === 0}
+            title="Reset to start"
+          >
+            ⟲
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrevious}
+            disabled={moveIndex === 0}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePlayPause}
+          >
+            {isPlaying ? (
+              <>
+                <Pause className="w-4 h-4 mr-1" />
+                Pause
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-1" />
+                Play
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNext}
+            disabled={moveIndex >= moveCount}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Move Progress */}
+        <div className="w-full bg-secondary/20 rounded-lg h-2">
+          <div
+            className="bg-primary h-2 rounded-lg transition-all"
+            style={{ width: moveCount > 0 ? `${(moveIndex / moveCount) * 100}%` : '0%' }}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  if (!showAnalysis) {
+    return <div className="space-y-4">{replayContent}</div>;
+  }
+
   return (
     <div className="space-y-4">
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>Move {moveIndex} of {moveCount}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-center">
-            <ChessBoard initialPgn={pgn} moveIndex={moveIndex} readOnly={true} />
-          </div>
+      <Tabs defaultValue="replay" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="replay">Replay</TabsTrigger>
+          <TabsTrigger value="analysis">Analysis</TabsTrigger>
+        </TabsList>
 
-          {/* Controls */}
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReset}
-              disabled={moveIndex === 0}
-              title="Reset to start"
-            >
-              ⟲
-            </Button>
+        <TabsContent value="replay" className="space-y-4">
+          {replayContent}
+        </TabsContent>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrevious}
-              disabled={moveIndex === 0}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePlayPause}
-            >
-              {isPlaying ? (
-                <>
-                  <Pause className="w-4 h-4 mr-1" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-1" />
-                  Play
-                </>
-              )}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNext}
-              disabled={moveIndex >= moveCount}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {/* Move Progress */}
-          <div className="w-full bg-secondary/20 rounded-lg h-2">
-            <div
-              className="bg-primary h-2 rounded-lg transition-all"
-              style={{ width: moveCount > 0 ? `${(moveIndex / moveCount) * 100}%` : '0%' }}
-            />
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="analysis" className="space-y-4">
+          <PostGameAnalysis pgn={pgn} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

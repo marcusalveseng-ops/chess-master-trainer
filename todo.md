@@ -89,3 +89,15 @@
 - [x] Integrate scoring system and difficulty progression
 - [x] Add endgame hints and strategic guidance (LLM ready)
 - [x] Test and optimize endgame module
+
+
+## Phase 11: Automatic Post-Game Analysis
+- [x] Create game phase detection (opening, middlegame, endgame)
+- [x] Implement strategic analysis for each phase
+- [x] Generate AI commentary for opening phase
+- [x] Generate AI commentary for middlegame phase
+- [x] Generate AI commentary for endgame phase
+- [x] Create PostGameAnalysis component with phase breakdown
+- [x] Integrate analysis into game history/replay
+- [x] Add performance metrics and recommendations
+- [x] Test analysis accuracy and quality
