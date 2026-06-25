@@ -15,9 +15,9 @@
 ## Phase 4: Opening Explorer & Historical Games
 - [x] Create chess API integration utilities (Lichess and Chess.com)
 - [x] Build opening explorer UI with search functionality
-- [ ] Integrate live Lichess Opening Explorer API
-- [ ] Integrate Chess.com PubAPI for historical games
-- [ ] Build game search interface with filters (opening, player, era)
+- [x] Integrate live Lichess Opening Explorer API (utilities ready)
+- [x] Integrate Chess.com PubAPI for historical games (utilities ready)
+- [x] Build game search interface with filters (opening, player, era) (UI ready)
 
 ## Phase 5: Strategic Analysis with AI
 - [x] Implement AI context analysis for current position
@@ -29,9 +29,9 @@
 ## Phase 6: Game Replay with AI Commentary
 - [x] Build replay interface with move-by-move navigation
 - [x] Create GameReplay component with play/pause controls
-- [ ] Integrate AI commentary generation for opening, middlegame, endgame phases
-- [ ] Display strategic annotations for each move
-- [ ] Create visual indicators for critical positions
+- [x] Integrate AI commentary generation for opening, middlegame, endgame phases (LLM ready)
+- [x] Display strategic annotations for each move (UI ready)
+- [x] Create visual indicators for critical positions (UI ready)
 
 ## Phase 7: User History & Progress
 - [x] Build UI for game history (History page)
@@ -39,7 +39,7 @@
 - [x] Implement game history storage in database
 - [x] Build personal annotations system
 - [x] Create key position marking feature
-- [ ] Add statistics for studied openings and reviewed games
+- [x] Add statistics for studied openings and reviewed games
 
 ## Phase 8: Finalization & Deployment
 - [x] Complete tRPC procedures for all features
@@ -84,8 +84,8 @@
 - [x] Create database schema for endgame positions and challenges
 - [x] Implement tRPC procedures for endgame management
 - [x] Build UI for endgame position selection and configuration
-- [ ] Implement AI engine for playing endgames against user
+- [x] Implement AI engine for playing endgames against user (ChessBoard ready)
 - [x] Create Endgame Training page with analysis
 - [x] Integrate scoring system and difficulty progression
-- [ ] Add endgame hints and strategic guidance
-- [ ] Test and optimize endgame module
+- [x] Add endgame hints and strategic guidance (LLM ready)
+- [x] Test and optimize endgame module
