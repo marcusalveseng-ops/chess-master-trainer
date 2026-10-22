@@ -27,9 +27,9 @@ Implementação baseada no commit `15b746eafbd5306e4794f5b16418764cfacfafc6`.
 - Não foi validada uma chamada real ao provedor de IA ou ao MySQL: não há credenciais locais configuradas. Os testes desses limites usam mocks.
 - A abertura do navegador de teste expirou; os testes de componentes não substituem verificação visual em navegador/dispositivos reais.
 
-## Simulação prolongada em andamento
+## Simulação prolongada concluída
 
-Início: 21/10/2026 às 14h29min48s de São Paulo. Duração programada: 210 minutos, até aproximadamente 18h. Não confundir agendamento com execução concluída.
+Execução confirmada em 21/10/2026, das 14h29min48s às 17h59min49s de São Paulo (210 minutos). Resultado: **3.916 simulações, 412.948 meios-lances, 105.628 análises e zero falhas**. Foram 3.100 mates, 396 empates e 420 partidas truncadas. A maior chamada de análise medida foi de 125 ms com orçamento de 100 ms neste teste. Essa medição não garante latência em outros dispositivos.
 
 O script `scripts/chess-soak.mjs` mistura escolhas pseudoaleatórias reproduzíveis e sugestões do motor. Confere cada sequência de análise, ida e volta PGN/FEN e navegação. Cada jogo limita-se a 180 meios-lances; partidas truncadas são contabilizadas separadamente. O processo para na primeira falha, salvando PGN, FEN e semente.
 
@@ -37,7 +37,7 @@ O script `scripts/chess-soak.mjs` mistura escolhas pseudoaleatórias reproduzív
 node scripts/chess-soak.mjs --minutes 2 --seed 20261021
 ```
 
-Requer Node com suporte a remoção de tipos TypeScript (validado com Node 26.7). Para esta tarde, foi iniciado com `--minutes 210 --output test-results/afternoon`. Resultados incrementais em `test-results/afternoon/progress.json`; falhas em `failures.jsonl`. Esses arquivos locais não são versionados. O acompanhamento agendado nesta conversa deve consolidar os números ao terminar.
+Requer Node com suporte a remoção de tipos TypeScript (validado com Node 26.7). Para esta tarde, foi iniciado com `--minutes 210 --output test-results/afternoon`. Resultados incrementais em `test-results/afternoon/progress.json`; falhas em `failures.jsonl`. Esses arquivos locais não são versionados. O acompanhamento agendado foi pausado após a confirmação do término. O resumo final reproduzível está em `docs/afternoon-results.json`.
 
 ## Limites e pendências
 
