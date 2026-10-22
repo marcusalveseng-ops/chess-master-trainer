@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
 
 interface PGNImportExportProps {
-  onGameImported?: (gameId: number) => void;
+  onGameImported?: (gameId: number, pgn: string) => void;
   gameId?: number;
 }
 
@@ -36,7 +36,7 @@ export default function PGNImportExport({ onGameImported, gameId }: PGNImportExp
       setImportNotes('');
       setIsImportOpen(false);
       if (onGameImported) {
-        onGameImported(data.gameId);
+        onGameImported(data.gameId, pgnText);
       }
     },
     onError: (error) => {
@@ -162,7 +162,7 @@ export default function PGNImportExport({ onGameImported, gameId }: PGNImportExp
           onClick={handleExport}
           variant="outline"
           className="gap-2"
-          disabled={exportGameMutation.isPending}
+          disabled={exportGameMutation.isFetching}
         >
           <Download className="w-4 h-4" />
           Exportar PGN

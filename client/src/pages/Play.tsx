@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Chess } from 'chess.js';
+import LiveCoach from '@/components/LiveCoach';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,9 +16,12 @@ import { ArrowLeft, Save } from 'lucide-react';
 export default function Play() {
   const [, setLocation] = useLocation();
   const [pgn, setPgn] = useState('');
+  const [loadedPgn, setLoadedPgn] = useState('');
+  const [boardKey, setBoardKey] = useState(0);
+  const [pgnError, setPgnError] = useState('');
   const [gameTitle, setGameTitle] = useState('');
   const [gameNotes, setGameNotes] = useState('');
-  const [currentFen, setCurrentFen] = useState('');
+  const [currentFen, setCurrentFen] = useState(() => new Chess().fen());
   const [currentPgn, setCurrentPgn] = useState('');
   const [currentGameId, setCurrentGameId] = useState<number | undefined>();
 
@@ -26,7 +31,8 @@ export default function Play() {
   };
 
   const { mutate: saveGame, isPending } = trpc.gamePersistence.saveGame.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      setCurrentGameId(data.gameId);
       alert('Game saved successfully!');
       setGameTitle('');
       setGameNotes('');
@@ -77,8 +83,9 @@ export default function Play() {
               </CardHeader>
               <CardContent className="flex justify-center">
                 <ChessBoard 
+                  key={boardKey}
                   onGameChange={handleGameChange}
-                  initialPgn={pgn || undefined}
+                  initialPgn={loadedPgn}
                 />
               </CardContent>
             </Card>
@@ -86,6 +93,8 @@ export default function Play() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            <LiveCoach fen={currentFen} pgn={currentPgn} />
+            <Button variant="outline" onClick={() => { setLoadedPgn(''); setPgn(''); setPgnError(''); setCurrentGameId(undefined); setBoardKey(key => key + 1); }}>Nova partida</Button>
             <Card className="border-border/50">
               <CardHeader>
                 <CardTitle className="text-lg">Game Info</CardTitle>
@@ -145,7 +154,7 @@ export default function Play() {
               <CardContent>
                 <PGNImportExport 
                   gameId={currentGameId}
-                  onGameImported={(gameId) => setCurrentGameId(gameId)}
+                  onGameImported={(gameId, importedPgn) => { setCurrentGameId(gameId); setLoadedPgn(importedPgn); setPgn(importedPgn); setBoardKey(key => key + 1); }}
                 />
               </CardContent>
             </Card>
@@ -168,6 +177,11 @@ export default function Play() {
                       onChange={(e) => setPgn(e.target.value)}
                       className="bg-input border-border/50 h-32 text-xs font-mono"
                     />
+                    <Button className="mt-2" onClick={() => {
+                      try { const game = new Chess(); game.loadPgn(pgn); setLoadedPgn(game.pgn()); setCurrentGameId(undefined); setBoardKey(key => key + 1); setPgnError(''); }
+                      catch { setPgnError('PGN inválido. A partida atual foi preservada.'); }
+                    }}>Carregar PGN</Button>
+                    {pgnError && <p role="alert">{pgnError}</p>}
                   </CardContent>
                 </Card>
               </TabsContent>

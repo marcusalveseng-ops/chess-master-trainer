@@ -1,4 +1,5 @@
 import { ENV } from "./env";
+import { setTimeout as delay } from 'node:timers/promises';
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -56,6 +57,7 @@ export type ToolChoice =
   | ToolChoiceExplicit;
 
 export type InvokeParams = {
+  signal?: AbortSignal;
   messages: Message[];
   tools?: Tool[];
   toolChoice?: ToolChoice;
@@ -274,8 +276,7 @@ const RETRY_MAX_DELAY_MS = 30_000;
 
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 
-const sleep = (ms: number) =>
-  new Promise<void>(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number, signal?: AbortSignal | null) => delay(ms, undefined, { signal: signal ?? undefined });
 
 const parseRetryAfter = (value: string | null): number | undefined => {
   if (!value) return undefined;
@@ -306,9 +307,10 @@ const fetchWithBackoff = async (
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= RETRY_MAX_RETRIES; attempt++) {
+    init.signal?.throwIfAborted();
     try {
       const response = await fetch(url, init);
-      if (response.ok || attempt === RETRY_MAX_RETRIES) {
+      if (response.ok || (response.status < 500 && response.status !== 429) || attempt === RETRY_MAX_RETRIES) {
         return response;
       }
 
@@ -323,14 +325,15 @@ const fetchWithBackoff = async (
       console.warn(
         `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after status ${response.status}`
       );
-      await sleep(computeBackoffDelay(attempt, retryAfterMs));
+      await sleep(computeBackoffDelay(attempt, retryAfterMs), init.signal);
     } catch (error) {
+      if (init.signal?.aborted) throw error;
       lastError = error;
       if (attempt === RETRY_MAX_RETRIES) throw error;
       console.warn(
         `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after network error`
       );
-      await sleep(computeBackoffDelay(attempt));
+      await sleep(computeBackoffDelay(attempt), init.signal);
     }
   }
 
@@ -402,6 +405,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   }
 
   const response = await fetchWithBackoff(resolveApiUrl(), {
+    signal: params.signal,
     method: "POST",
     headers: {
       "content-type": "application/json",

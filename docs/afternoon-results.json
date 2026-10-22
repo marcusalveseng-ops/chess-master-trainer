@@ -1,0 +1,15 @@
+{
+  "startedAt": "2026-10-21T17:29:48.894Z",
+  "updatedAt": "2026-10-21T20:59:49.142Z",
+  "status": "completed",
+  "seed": 20261021,
+  "minutes": 210,
+  "games": 3916,
+  "plies": 412948,
+  "analyses": 105628,
+  "mates": 3100,
+  "draws": 396,
+  "truncated": 420,
+  "failures": 0,
+  "maxAnalysisMs": 125
+}
