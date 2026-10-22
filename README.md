@@ -17,6 +17,8 @@ O resultado é `dist/tess/index.html`: um arquivo HTML para atualizar **a págin
 
 Essa versão executa no navegador: Stockfish 10.0.2 sob demanda, três variantes com explicações locais de vantagens/riscos, simulação de linhas sem alterar a partida, navegação, promoção, importação/exportação PGN e biblioteca com 205 partidas. Usa chess.js 1.4.0 e o mesmo motor local de apoio em `shared/chess-coach.ts`. Se o Stockfish não carregar, o assistente local continua calculando, com profundidade limitada.
 
+A hospedagem Tess bloqueia Workers criados por URLs Blob. A exportação executa os motores no contexto da página, sem Workers, usando a política de scripts já oferecida pela Tess. O download do Stockfish verifica uma assinatura de integridade fixa. Cada busca do Stockfish solicita 220 ms e o apoio local tem orçamento de 160 ms; a profundidade exibida é a efetivamente concluída. Esses tempos são metas de busca, não uma garantia de latência: aparelhos lentos podem apresentar pequenas pausas na interface. O runtime cancela seus temporizadores ao sair da página.
+
 As partidas salvas mantêm a chave `xsf_saved` e ficam associadas ao navegador e ao endereço da página. Faça backup com **Baixar histórico PGN**. A aplicação não envia essas partidas a um servidor. A exportação usa a posição exibida; voltar e jogar outro lance cria uma nova continuação.
 
 O restante do projeto React/Express/MySQL e a integração de explicação online permanecem preservados no repositório. Esses recursos de servidor exigem hospedagem Node.js, banco e credenciais; não são executados por uma Tess Page estática. A publicação atual usa análise local, sem expor chaves de API.
@@ -30,7 +32,7 @@ pnpm build
 pnpm build:tess
 ```
 
-Os testes de integração da exportação constroem o HTML, verificam cliques, histórico, FEN, subpromoção, salvamento compatível, PGN inválido e sincronização das buscas UCI. Os testes anteriores e o relatório da simulação prolongada estão preservados em `docs/`.
+Os testes de integração da exportação constroem o HTML, verificam cliques, histórico, FEN, subpromoção, salvamento compatível, PGN inválido, funcionamento sem Workers e sem CDN, sincronização das buscas UCI e cancelamento dos temporizadores. Os testes anteriores e o relatório da simulação prolongada estão preservados em `docs/`.
 
 ## Origem e reversão
 

@@ -1,9 +1,8 @@
 import fs from 'node:fs/promises';
 import { build } from 'esbuild';
 const root=new URL('../',import.meta.url);
-const worker=await build({stdin:{contents:"import { analyzePosition } from './shared/chess-coach.ts'; self.onmessage=e=>{try{postMessage(analyzePosition(e.data.fen,{pgn:e.data.pgn}));}catch{postMessage({error:'Posição inválida'});}};",resolveDir:root.pathname.replace(/^\/([A-Za-z]:)/,'$1')},bundle:true,write:false,format:'iife',minify:true});
 const pgn=await fs.readFile(new URL('standalone/games.pgn',root),'utf8');
-const bundle=await build({entryPoints:[new URL('standalone/app.js',root).pathname.replace(/^\/([A-Za-z]:)/,'$1')],bundle:true,write:false,format:'iife',minify:true,define:{__COACH_WORKER__:JSON.stringify(worker.outputFiles[0].text),__GAMES_PGN__:JSON.stringify(pgn)},legalComments:'inline'});
+const bundle=await build({entryPoints:[new URL('standalone/app.js',root).pathname.replace(/^\/([A-Za-z]:)/,'$1')],bundle:true,write:false,format:'iife',minify:true,define:{__GAMES_PGN__:JSON.stringify(pgn)},legalComments:'inline'});
 let html=await fs.readFile(new URL('standalone/template.html',root),'utf8');
 html=html.replace('<!-- APPLICATION -->',()=>`<script>${bundle.outputFiles[0].text.replaceAll('</script','<\\/script')}</script>`);
 await fs.mkdir(new URL('dist/tess/',root),{recursive:true});

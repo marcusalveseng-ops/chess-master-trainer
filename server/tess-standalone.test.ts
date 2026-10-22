@@ -2,14 +2,14 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { JSDOM, VirtualConsole } from 'jsdom';
-import { StockfishCoach } from '../standalone/engine.js';
+import { StockfishCoach, createInlineStockfish } from '../standalone/engine.js';
 let html: string;
 beforeAll(() => { execFileSync(process.execPath, ['scripts/build-tess.mjs']); html=readFileSync('dist/tess/index.html','utf8'); });
-function app(legacy?: object[]) {
+function app(legacy?: object[], blockedWorkers=false) {
   const errors: Error[]=[];const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e));
   const dom=new JSDOM(html,{url:'https://xadrez-stockfish.tess.page',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
     w.fetch=vi.fn().mockRejectedValue(new Error('offline'));
-    w.Worker=class { terminate(){} postMessage(){} } as any;
+    w.Worker=class { constructor(){if(blockedWorkers)throw new w.DOMException('Blocked by hosting CSP','SecurityError');} terminate(){} postMessage(){} } as any;
     w.URL.createObjectURL=()=> 'blob:test';w.URL.revokeObjectURL=()=>{};w.confirm=()=>true;
     if(legacy)w.localStorage.setItem('xsf_saved',JSON.stringify(legacy));
   }});
@@ -19,6 +19,15 @@ function app(legacy?: object[]) {
   return {dom,document,errors,click,square,close:()=>{dom.window.dispatchEvent(new dom.window.Event('pagehide'));dom.window.close();}};
 }
 describe('single-file Tess export',()=>{
+  it('produces alternatives when hosting blocks Workers and the CDN is offline',async()=>{
+    const a=app(undefined,true);
+    try {
+      await new Promise(resolve=>setTimeout(resolve,650));
+      expect(a.document.querySelectorAll('#coach .candidate')).toHaveLength(3);
+      expect(a.document.querySelector('#depthtxt')?.textContent).toContain('Assistente local');
+      expect(a.errors).toEqual([]);
+    } finally { a.close(); }
+  });
   it('renders the board and all 205 recovered games without script errors',()=>{
     const a=app();expect(a.errors).toEqual([]);expect(a.document.querySelectorAll('#board button')).toHaveLength(64);
     expect(a.document.querySelector('#dbcount')?.textContent).toBe('205 de 205 partidas');a.close();
@@ -68,5 +77,22 @@ describe('Stockfish search synchronization',()=>{
     for(let i=1;i<=3;i++)coach.message(`info depth 6 multipv ${i} score cp ${40-i} pv e2e4 e7e5`);
     coach.message('info depth 7 multipv 1 score cp 55 pv d2d4 d7d5');coach.message('bestmove d2d4');
     expect(result.mock.calls[0][0]).toMatchObject({depth:6});expect(result.mock.calls[0][0].lines).toHaveLength(3);
+  });
+});
+
+describe('Stockfish without Workers',()=>{
+  it('keeps engine globals private and delivers UCI messages asynchronously',async()=>{
+    const original=globalThis.onmessage;
+    const port=createInlineStockfish('var Module={};onmessage=e=>postMessage(e.data+"ok");');
+    const output=vi.fn();port.onmessage=output;
+    port.postMessage('uci');expect(output).not.toHaveBeenCalled();
+    await new Promise(resolve=>setTimeout(resolve,30));
+    expect(output).toHaveBeenCalledWith({data:'uciok'});
+    expect(globalThis.onmessage).toBe(original);port.terminate();
+  });
+  it('cancels queued commands and engine timers on disposal',async()=>{
+    const port=createInlineStockfish('setTimeout(()=>postMessage("late"),15);onmessage=e=>postMessage(e.data);');
+    const output=vi.fn();port.onmessage=output;port.postMessage('uci');port.terminate();
+    await new Promise(resolve=>setTimeout(resolve,30));expect(output).not.toHaveBeenCalled();
   });
 });
