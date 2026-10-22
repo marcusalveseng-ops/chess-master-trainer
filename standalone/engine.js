@@ -1,5 +1,28 @@
-// Stockfish 10.0.2 matches the published Tess app; fallback uses the shared coach.
-// Fetch in the page and execute a Blob worker, avoiding cross-origin importScripts.
+// Tess permits scripts but blocks Blob Workers. Run the pinned engine in a local
+// scope, retain the UCI message barrier, and bound each search to a short burst.
+export function createInlineStockfish(code) {
+  let closed=false,receive;
+  const timers=new Set();
+  const later=(callback,delay=0,...args)=>{
+    if(closed)return;
+    const id=setTimeout(()=>{timers.delete(id);if(!closed)callback(...args);},delay);
+    timers.add(id);return id;
+  };
+  const cancel=id=>{clearTimeout(id);timers.delete(id);};
+  const port={onmessage:null,onerror:null,
+    postMessage(data){later(()=>{try{receive(data);}catch(error){port.onerror?.(error);}});},
+    terminate(){closed=true;for(const id of timers)clearTimeout(id);timers.clear();}
+  };
+  try {
+    // Function scope contains Emscripten's globals and onmessage. The source is
+    // fetched with a fixed integrity hash below, never from user input.
+    receive=new Function('postMessage','close','setTimeout','clearTimeout',
+      'var onmessage;\n'+code+'\n;return function(data){onmessage({data:data});};'
+    )(data=>later(()=>port.onmessage?.({data})),()=>port.terminate(),later,cancel);
+  } catch(error) {port.terminate();throw error;}
+  return port;
+}
+
 export class StockfishCoach {
   constructor(onAnalysis, onStatus) {
     this.onAnalysis=onAnalysis; this.onStatus=onStatus;
@@ -9,13 +32,11 @@ export class StockfishCoach {
   async init() {
     try {
       const url='https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
-      const response=await fetch(url,{signal:AbortSignal.timeout(15000)});
+      const response=await fetch(url,{signal:AbortSignal.timeout(15000),integrity:'sha384-VtbI9eXlyH0iLETxBo+yJZD0egEZcin9R4ntQlcrrKjRYSTQmdhoiY/jGV9SGw4Q'});
       if(!response.ok) throw new Error('HTTP '+response.status);
       const code=await response.text();
       if(this.closed)return;
-      const objectUrl=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
-      this.worker=new Worker(objectUrl);
-      URL.revokeObjectURL(objectUrl);
+      this.worker=createInlineStockfish(code);
       this.worker.onmessage=e=>this.message(String(e.data));
       this.worker.onerror=()=>this.fail();
       this.worker.postMessage('uci');
@@ -39,7 +60,7 @@ export class StockfishCoach {
     const { depth, history }=this.active;
     this.worker.postMessage('setoption name MultiPV value 3');
     this.worker.postMessage('position fen '+history.startFen+' moves '+history.moves.join(' '));
-    this.worker.postMessage('go depth '+depth+' movetime 1800');
+    this.worker.postMessage('go depth '+depth+' movetime 220');
   }
   message(text) {
     if(text==='uciok') {
@@ -47,7 +68,7 @@ export class StockfishCoach {
     }
     if(text==='readyok') {
       clearTimeout(this.timer);this.ready=true;
-      this.onStatus('Stockfish pronto · três variantes · cálculo no navegador');this.start();return;
+      this.onStatus('Stockfish pronto · três variantes · modo compatível com Tess');this.start();return;
     }
     if(text.startsWith('bestmove')) {
       if(this.active && !this.pending && !this.cancelled)this.publish();
