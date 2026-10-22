@@ -40,7 +40,7 @@ export const pgnIORouter = router({
         throw new Error('Database não disponível');
       }
 
-      await db.insert(games).values({
+      const [saved] = await db.insert(games).values({
         userId: ctx.user.id,
         pgn: input.pgnText,
         title: input.title || `${parsed.metadata.white || 'White'} vs ${parsed.metadata.black || 'Black'}`,
@@ -53,7 +53,7 @@ export const pgnIORouter = router({
 
       return {
         success: true,
-        gameId: Date.now(),
+        gameId: saved.insertId,
         stats: {
           totalMoves: stats.totalMoves,
           opening: stats.openingName,

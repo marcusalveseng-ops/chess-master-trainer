@@ -2,8 +2,31 @@ import { z } from 'zod';
 import { protectedProcedure, router } from '../_core/trpc';
 import { invokeLLM } from '../_core/llm';
 import { TRPCError } from '@trpc/server';
+import { Chess } from 'chess.js';
 
 export const aiAnalysisRouter = router({
+  explainCandidates: protectedProcedure
+    .input(z.object({ fen: z.string().max(120), lines: z.array(z.array(z.string().max(16)).min(1).max(6)).min(1).max(3) }))
+    .mutation(async ({ input }) => {
+      try {
+        for (const line of input.lines) {
+          const game = new Chess(input.fen);
+          for (const move of line) game.move(move);
+        }
+      } catch { throw new TRPCError({ code: 'BAD_REQUEST', message: 'Posição ou variante ilegal.' }); }
+      try {
+        const response = await invokeLLM({
+          max_tokens: 800,
+          signal: AbortSignal.timeout(15000),
+          messages: [
+            { role: 'system', content: 'Você é um treinador de xadrez. Responda em português, em até 250 palavras. Explique planos, vantagens e riscos apenas das variantes legais fornecidas. Elas vêm de uma busca heurística curta, não comprovam superioridade. Não invente lances extras ou avaliações numéricas, nem afirme que uma captura é segura sem prova. Distinga observações de hipóteses.' },
+            { role: 'user', content: JSON.stringify(input) },
+          ],
+        });
+        const explanation = z.string().min(1).max(6000).parse(response.choices[0]?.message.content);
+        return { fen: input.fen, explanation };
+      } catch { throw new TRPCError({ code: 'SERVICE_UNAVAILABLE', message: 'Explicação online indisponível. Use a análise local.' }); }
+    }),
   // Get strategic tips for current position
   getStrategicTips: protectedProcedure
     .input(z.object({

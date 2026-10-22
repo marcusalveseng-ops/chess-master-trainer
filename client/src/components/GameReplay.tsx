@@ -20,10 +20,12 @@ export default function GameReplay({ pgn, title = 'Game Replay', showAnalysis = 
 
   // Parse PGN correctly using chess.js
   useEffect(() => {
+    setMoveIndex(0);
+    setIsPlaying(false);
     try {
       const chess = new Chess();
       chess.loadPgn(pgn);
-      const moves = chess.moves({ verbose: false });
+      const moves = chess.history();
       setMoveCount(moves.length);
     } catch (e) {
       console.error('Failed to parse PGN:', e);

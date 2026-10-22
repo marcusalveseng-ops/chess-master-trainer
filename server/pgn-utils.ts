@@ -42,116 +42,29 @@ export interface GameForExport {
  * Parser de PGN
  */
 export function parsePGN(pgnText: string): ParsedPGN {
-  const lines = pgnText.split('\n').map(line => line.trim());
-  
+  const game = new Chess();
+  game.loadPgn(pgnText);
   const metadata: PGNMetadata = {};
-  const moves: string[] = [];
+  const names: Record<string, string> = { WhiteElo: 'whiteElo', BlackElo: 'blackElo', TimeControl: 'timeControl' };
+  for (const [key, value] of Object.entries(game.getHeaders())) metadata[names[key] ?? key.toLowerCase()] = value;
   const comments: Record<number, string> = {};
-  const annotations: Record<number, string> = {};
-  const variations: Record<number, string[]> = {};
-  
-  let inMetadata = true;
-  let moveText = '';
-  
-  for (const line of lines) {
-    // Parsing de metadados (linhas entre colchetes)
-    if (line.startsWith('[') && line.endsWith(']')) {
-      inMetadata = true;
-      const match = line.match(/\[(\w+)\s+"([^"]*)"\]/);
-      if (match) {
-        const [, key, value] = match;
-        metadata[key.toLowerCase()] = value;
-      }
-    } else if (line && !inMetadata) {
-      // Parsing de lances e comentários
-      moveText += ' ' + line;
-    } else if (line && inMetadata && !line.startsWith('[')) {
-      // Fim da seção de metadados
-      inMetadata = false;
-      moveText = line;
-    }
-  }
-  
-  // Parse dos lances
-  if (moveText) {
-    // Remove números de movimento, comentários e variações
-    const cleanMoves = moveText
-      .replace(/\d+\.\s*/g, '') // Remove números de movimento
-      .replace(/\{[^}]*\}/g, (match) => {
-        // Extrai comentários
-        const comment = match.slice(1, -1);
-        return '';
-      })
-      .replace(/\([^)]*\)/g, '') // Remove variações
-      .split(/\s+/)
-      .filter(m => m && !m.match(/^[0-9\-]+$/)); // Remove números e resultados
-    
-    // Valida lances com chess.js
-    const chess = new Chess();
-    for (const move of cleanMoves) {
-      try {
-        const result = chess.move(move);
-        if (result) {
-          moves.push(result.san);
-        }
-      } catch (e) {
-        // Tenta com formato SAN
-        try {
-          const sanMove = chess.move(move);
-          if (sanMove) {
-            moves.push(sanMove.san);
-          }
-        } catch (e2) {
-          // Ignora lances inválidos
-        }
-      }
-    }
-  }
-  
-  return {
-    metadata,
-    moves,
-    comments,
-    annotations,
-    variations,
-  };
+  const commentsByFen = new Map(game.getComments().map(item => [item.fen, item.comment]));
+  const history = game.history({ verbose: true });
+  history.forEach((move, index) => { const comment = commentsByFen.get(move.after); if (comment) comments[index + 1] = comment; });
+  return { metadata, moves: history.map(move => move.san), comments, annotations: {}, variations: {}, fen: game.getHeaders().FEN };
 }
 
 /**
  * Valida PGN antes de importar
  */
 export function validatePGN(pgnText: string): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-  
-  if (!pgnText || pgnText.trim().length === 0) {
-    errors.push('PGN está vazio');
-    return { valid: false, errors };
-  }
-  
+  if (!pgnText.trim()) return { valid: false, errors: ['PGN está vazio'] };
   try {
-    const parsed = parsePGN(pgnText);
-    
-    if (!parsed.moves || parsed.moves.length === 0) {
-      errors.push('Nenhum lance válido encontrado no PGN');
-    }
-    
-    // Valida a sequência de lances
-    const chess = new Chess();
-    for (const move of parsed.moves) {
-      const result = chess.move(move);
-      if (!result) {
-        errors.push(`Lance inválido: ${move}`);
-        break;
-      }
-    }
-    
-    return {
-      valid: errors.length === 0,
-      errors,
-    };
+    const game = new Chess();
+    game.loadPgn(pgnText);
+    return { valid: true, errors: [] };
   } catch (error) {
-    errors.push(`Erro ao parsear PGN: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-    return { valid: false, errors };
+    return { valid: false, errors: [error instanceof Error ? error.message : 'PGN inválido'] };
   }
 }
 

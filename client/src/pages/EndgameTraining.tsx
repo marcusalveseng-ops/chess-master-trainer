@@ -142,7 +142,7 @@ export default function EndgameTraining() {
               <CardContent className="flex justify-center">
                 {selectedPosition ? (
                   <ChessBoard 
-                    initialPgn={selectedPosition.fen}
+                    initialFen={selectedPosition.fen}
                     readOnly={false}
                   />
                 ) : (

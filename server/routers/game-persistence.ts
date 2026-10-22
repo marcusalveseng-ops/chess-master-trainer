@@ -4,6 +4,7 @@ import { TRPCError } from '@trpc/server';
 import { getDb } from '../db';
 import { games, keyPositions } from '../../drizzle/schema';
 import { eq, and } from 'drizzle-orm';
+import { Chess } from 'chess.js';
 
 export const gamePersistenceRouter = router({
   // Save a game
@@ -16,11 +17,13 @@ export const gamePersistenceRouter = router({
       result: z.enum(['1-0', '0-1', '1/2-1/2']).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
+      try { new Chess().loadPgn(input.pgn); }
+      catch { throw new TRPCError({ code: 'BAD_REQUEST', message: 'PGN inválido.' }); }
       try {
         const db = await getDb();
         if (!db) throw new Error('Database not available');
 
-        await db.insert(games).values({
+        const [saved] = await db.insert(games).values({
           userId: ctx.user.id,
           pgn: input.pgn,
           title: input.title,
@@ -31,7 +34,7 @@ export const gamePersistenceRouter = router({
           updatedAt: new Date(),
         });
 
-        return { success: true };
+        return { success: true, gameId: saved.insertId };
       } catch (error) {
         console.error('Save game error:', error);
         throw new TRPCError({
