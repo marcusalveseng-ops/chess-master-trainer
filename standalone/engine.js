@@ -27,7 +27,7 @@ export class StockfishCoach {
   constructor(onAnalysis, onStatus) {
     this.onAnalysis=onAnalysis; this.onStatus=onStatus;
     this.worker=null; this.active=null; this.pending=null; this.ready=false;
-    this.lines=new Map(); this.timer=null; this.closed=false; this.cancelled=false;
+    this.lines=new Map(); this.completed=new Map(); this.timer=null; this.closed=false; this.cancelled=false;
   }
   async init() {
     try {
@@ -56,7 +56,7 @@ export class StockfishCoach {
   }
   start() {
     if(!this.pending || !this.ready)return;
-    this.active=this.pending; this.pending=null; this.lines.clear(); this.cancelled=false;
+    this.active=this.pending; this.pending=null; this.lines.clear(); this.completed.clear(); this.cancelled=false;
     const { depth, history }=this.active;
     this.worker.postMessage('setoption name MultiPV value 3');
     this.worker.postMessage('position fen '+history.startFen+' moves '+history.moves.join(' '));
@@ -79,16 +79,18 @@ export class StockfishCoach {
     const depth=Number(text.match(/ depth (\d+)/)?.[1]||0);
     if(!score || / (lowerbound|upperbound)(?: |$)/.test(text))return;
     const rank=Number(text.match(/ multipv (\d+)/)?.[1]||1);
-    if(!this.lines.has(depth))this.lines.set(depth,new Map());
+    if(rank===1 || !this.lines.has(depth))this.lines.set(depth,new Map());
     this.lines.get(depth).set(rank,{depth,kind:score[1],score:Number(score[2]),uci:text.split(' pv ')[1].trim().split(/\s+/).slice(0,10)});
+    const expected=this.active.expected||3;
+    const batch=Array.from({length:expected},(_,i)=>this.lines.get(depth).get(i+1));
+    if(batch.every(Boolean) && new Set(batch.map(line=>line.uci[0])).size===expected)this.completed.set(depth,batch);
   }
   publish() {
     // Equal-depth alternatives only; partial MultiPV iterations are not compared.
-    const expected=this.active.expected||3;
-    const completed=[...this.lines.entries()].filter(([,lines])=>Array.from({length:expected},(_,i)=>i+1).every(rank=>lines.has(rank))).sort((a,b)=>b[0]-a[0]);
+    const completed=[...this.completed.entries()].sort((a,b)=>b[0]-a[0]);
     if(!completed.length)return;
-    const [depth,ranks]=completed[0];
-    this.onAnalysis({ ...this.active, lines: [...ranks.entries()].sort((a,b)=>a[0]-b[0]).slice(0,expected).map(([,line])=>line), depth });
+    const [depth,lines]=completed[0];
+    this.onAnalysis({ ...this.active, lines, depth });
   }
   stop() {this.pending=null; this.cancelled=true; if(this.active)this.worker?.postMessage('stop');}
   dispose() {this.closed=true;clearTimeout(this.timer);this.worker?.terminate();}

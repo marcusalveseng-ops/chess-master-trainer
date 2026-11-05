@@ -113,3 +113,20 @@ temp/
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
 .project-config.json
+
+# Credenciais locais
+.env.*
+!.env.example
+!.env.template
+.secrets/
+.credentials/
+credentials*.json
+service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Exportações e evidências locais
+/Chess-Unificado-Tess.html
+/review/
