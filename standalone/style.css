@@ -1088,3 +1088,54 @@ footer a {
     scroll-behavior: auto !important;
   }
 }
+.play-settings {
+  max-width: 1180px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--panel);
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.play-settings label {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.play-settings select {
+  padding: 6px;
+}
+.play-settings #bot-status {
+  color: var(--green-light);
+  font-weight: 600;
+}
+.library-filters {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+}
+.library-filters select {
+  width: 100%;
+}
+#db-page {
+  font-size: 11px;
+}
+#train-position {
+  font-size: 11px;
+}
+@media (max-width: 720px) {
+  .play-settings {
+    gap: 8px;
+    font-size: 11px;
+  }
+  .play-settings label {
+    flex: 1;
+    min-width: 130px;
+  }
+  .play-settings select {
+    max-width: 160px;
+  }
+}

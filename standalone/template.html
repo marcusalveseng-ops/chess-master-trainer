@@ -50,6 +50,36 @@
           ><span class="status-dot"></span> Análise local</span
         >
       </header>
+      <div class="play-settings">
+        <label
+          >Modo
+          <select id="game-mode">
+            <option value="bot">Contra o bot</option>
+            <option value="study">Estudo (dois lados)</option>
+          </select></label
+        >
+        <label
+          >Sua cor
+          <select id="human-color">
+            <option value="w">Brancas</option>
+            <option value="b">Pretas</option>
+          </select></label
+        >
+        <label
+          >Nível do bot
+          <select id="bot-level">
+            <option value="easy">Iniciante</option>
+            <option value="normal" selected>Intermediário</option>
+            <option value="hard">Avançado</option>
+          </select></label
+        >
+        <button
+          id="train-position"
+          title="Cria uma continuação contra o bot a partir do lance selecionado"
+        >
+          Treinar desta posição</button
+        ><span id="bot-status" role="status"></span>
+      </div>
       <div class="workspace">
         <section class="game-area" aria-label="Partida de xadrez">
           <div class="player-row" id="player-top">
@@ -254,7 +284,52 @@
                 role="status"
               ></span>
             </div>
+            <div class="library-filters">
+              <label for="player1">Jogador 1 (qualquer cor)</label
+              ><input
+                id="player1"
+                type="search"
+                placeholder="Ex.: Carlsen"
+                oninput="renderDB()"
+              />
+              <label for="player2">Jogador 2 (qualquer cor)</label
+              ><input
+                id="player2"
+                type="search"
+                placeholder="Ex.: Nakamura"
+                oninput="renderDB()"
+              />
+              <label for="opening-filter">Abertura</label
+              ><select id="opening-filter" onchange="renderDB()">
+                <option value="">Todas as aberturas</option>
+              </select>
+              <label for="defense-filter">Defesa</label
+              ><select id="defense-filter" onchange="renderDB()">
+                <option value="">Todas as defesas</option>
+              </select>
+              <button id="clear-filters">Limpar filtros</button>
+            </div>
+            <p class="help-text">
+              Coleções de Carlsen e Nakamura + base original. Abertura e defesa
+              identificadas pelos lances. Fonte:
+              <a
+                href="https://www.pgnmentor.com/files.html"
+                target="_blank"
+                rel="noopener"
+                >PGN Mentor</a
+              >; catálogo
+              <a
+                href="https://github.com/lichess-org/chess-openings"
+                target="_blank"
+                rel="noopener"
+                >Lichess (CC0)</a
+              >.
+            </p>
             <div id="dblist"></div>
+            <div class="row">
+              <button id="db-prev">Anterior</button><span id="db-page"></span
+              ><button id="db-next">Próxima</button>
+            </div>
           </section>
           <section
             class="panel"
