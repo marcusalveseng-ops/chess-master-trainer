@@ -8,20 +8,41 @@ beforeAll(() => { execFileSync(process.execPath, ['scripts/build-tess.mjs']); ht
 function app(legacy?: object[], blockedWorkers=false) {
   const errors: Error[]=[];const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e));
   const dom=new JSDOM(html,{url:'https://xadrez-stockfish.tess.page',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
+    Object.assign(w,{Response,DecompressionStream,TextDecoder,TextEncoder});
     w.fetch=vi.fn().mockRejectedValue(new Error('offline'));
     w.Worker=class { constructor(){if(blockedWorkers)throw new w.DOMException('Blocked by hosting CSP','SecurityError');} terminate(){} postMessage(){} } as any;
     w.URL.createObjectURL=()=> 'blob:test';w.URL.revokeObjectURL=()=>{};w.confirm=()=>true;
     if(legacy)w.localStorage.setItem('xsf_saved',JSON.stringify(legacy));
   }});
   const document=dom.window.document;
+  const mode=document.querySelector('#game-mode') as HTMLSelectElement;if(mode){mode.value='study';mode.dispatchEvent(new dom.window.Event('change'));}
   const click=(selector:string)=>{const el=document.querySelector(selector) as HTMLElement;expect(el,selector).toBeTruthy();el.click();};
   const square=(s:string)=>click(`[aria-label="${s}"]`);
   return {dom,document,errors,click,square,close:()=>{dom.window.dispatchEvent(new dom.window.Event('pagehide'));dom.window.close();}};
 }
 describe('single-file Tess export',()=>{
+  it('new game replies with a legal bot move even offline',async()=>{
+    const a=app();try{a.dom.window.newGame();a.square('e2');a.square('e4');
+    await new Promise(r=>setTimeout(r,1300));
+    expect(a.document.querySelector('#status')?.textContent).toContain('lance 2/2');
+    }finally{a.close();}
+  });
   it('saves the complete main game while reviewing an earlier move',()=>{
     const a=app();a.square('e2');a.square('e4');a.square('e7');a.square('e5');a.dom.window.go(0);a.dom.window.saveGame();
     expect(JSON.parse(a.dom.window.localStorage.getItem('xsf_saved')!)[0].pgn).toContain('1. e4 e5');a.close();
+  });
+  it('plays first when the human chooses black and stops in study mode',async()=>{
+    const a=app();try{(a.document.querySelector('#human-color') as HTMLSelectElement).value='b';a.dom.window.newGame();
+      await new Promise(r=>setTimeout(r,900));expect(a.document.querySelector('#status')?.textContent).toContain('lance 1/1');
+      const mode=a.document.querySelector('#game-mode') as HTMLSelectElement;mode.value='study';mode.dispatchEvent(new a.dom.window.Event('change'));
+      a.dom.window.go(0);await new Promise(r=>setTimeout(r,600));expect(a.document.querySelector('#status')?.textContent).toContain('lance 0/1');
+    }finally{a.close();}
+  });
+  it('cancels the bot when navigating away and keeps playing with hints disabled',async()=>{
+    const a=app();try{a.dom.window.newGame();const hints=a.document.querySelector('#autoA') as HTMLInputElement;hints.checked=false;hints.dispatchEvent(new a.dom.window.Event('change'));
+      a.square('e2');a.square('e4');a.dom.window.go(0);await new Promise(r=>setTimeout(r,600));expect(a.document.querySelector('#status')?.textContent).toContain('lance 0/1');
+      a.dom.window.goEnd();await new Promise(r=>setTimeout(r,900));expect(a.document.querySelector('#status')?.textContent).toContain('lance 2/2');
+    }finally{a.close();}
   });
   it('switches navigation panels and exposes coordinates',()=>{
     const a=app();a.click('.main-nav [data-panel="1"]');expect(a.document.querySelector('#p1')?.hasAttribute('hidden')).toBe(false);
@@ -37,9 +58,9 @@ describe('single-file Tess export',()=>{
       expect(a.errors).toEqual([]);
     } finally { a.close(); }
   });
-  it('renders the board and all 205 recovered games without script errors',()=>{
-    const a=app();expect(a.errors).toEqual([]);expect(a.document.querySelectorAll('#board button')).toHaveLength(64);
-    expect(a.document.querySelector('#dbcount')?.textContent).toBe('205 de 205 partidas');a.close();
+  it('renders the board and expanded library without script errors',async()=>{
+    const a=app();await a.dom.window.libraryReady;expect(a.errors).toEqual([]);expect(a.document.querySelectorAll('#board button')).toHaveLength(64);
+    expect(Number(a.document.querySelector('#dbcount')?.textContent?.split(' ')[0])).toBeGreaterThan(10000);expect(a.document.querySelectorAll('#dblist button')).toHaveLength(50);a.close();
   });
   it('plays, navigates, branches and exports the displayed position',()=>{
     const a=app();a.square('e2');a.square('e4');a.square('e7');a.square('e5');

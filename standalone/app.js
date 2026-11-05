@@ -4,6 +4,8 @@ import { explainCandidate } from "../shared/coach-explanation.ts";
 import { analyzePosition } from "../shared/chess-coach.ts";
 import { StockfishCoach } from "./engine.js";
 import pieces from "./pieces.json";
+import { classify, matchesGame } from "./library.js";
+import { BotOpponent } from "./bot.js";
 
 const $ = id => document.getElementById(id);
 const PIECES = {
@@ -30,9 +32,58 @@ let preview = null,
   timer = null,
   currentOrigin = "",
   db = [];
-const engine = new StockfishCoach(showStockfish, text => {
-  $("sfstatus").textContent = text;
-});
+let gameMode = "bot",
+  humanColor = "w",
+  disposed = false,
+  libraryGeneration = 0;
+const engine = new StockfishCoach(
+  result =>
+    result.purpose === "bot" ? bot.receive(result) : showStockfish(result),
+  text => {
+    $("sfstatus").textContent = text;
+  }
+);
+const bot = new BotOpponent(
+  engine,
+  (san, fen) => {
+    if (!botTurn() || record(ply).fen() !== fen) return;
+    const game = record(ply);
+    const move = game.move(san);
+    moves.push(move.san);
+    ply = moves.length;
+    selected = null;
+    render();
+  },
+  text => {
+    $("bot-status").textContent = text;
+  }
+);
+function botTurn() {
+  return (
+    gameMode === "bot" &&
+    !preview &&
+    ply === moves.length &&
+    record(ply).turn() !== humanColor &&
+    !record(ply).isGameOver()
+  );
+}
+function syncBot() {
+  $("game-mode").value = gameMode;
+  $("human-color").value = humanColor;
+  $("bot-status").textContent =
+    gameMode === "study"
+      ? "Modo estudo · mova os dois lados"
+      : ply < moves.length
+        ? "Revisando a partida · volte ao último lance para continuar"
+        : record(ply).isGameOver()
+          ? "Partida encerrada"
+          : botTurn()
+            ? "Bot pensando…"
+            : "Sua vez · você joga de " +
+              (humanColor === "w" ? "brancas" : "pretas");
+  if (botTurn()) bot.request(record(ply), initialFen, $("bot-level").value);
+  else bot.cancel();
+}
 function notice(message = "") {
   $("notice").textContent = message;
 }
@@ -95,11 +146,15 @@ function renderPlayers(c) {
   ]) {
     const row = $(id);
     row.querySelector(".player-name").textContent =
-      headers[color === "w" ? "White" : "Black"] ||
+      (gameMode==='bot' ? (color===humanColor?'Você':'Bot')+' · '+(color==='w'?'Brancas':'Pretas') : headers[color === "w" ? "White" : "Black"]) ||
       (color === "w" ? "Brancas" : "Pretas");
     row.querySelector(".avatar").classList.toggle("white", color === "w");
     row.querySelector(".turn-badge").textContent =
-      !c.isGameOver() && c.turn() === color ? "Sua vez" : "";
+      !c.isGameOver() && c.turn() === color
+        ? gameMode === "bot" && color !== humanColor
+          ? "Bot"
+          : "Vez de jogar"
+        : "";
     const captured = row.querySelector(".captured");
     captured.replaceChildren();
     const taken = history.filter(m => m.color === color && m.captured);
@@ -162,7 +217,10 @@ function render() {
         d.appendChild(coordinate);
       }
     d.onclick = () => clickSq(sq);
-    d.disabled = !!preview || c.isGameOver();
+    d.disabled =
+      !!preview ||
+      c.isGameOver() ||
+      (gameMode === "bot" && c.turn() !== humanColor);
     $("board").appendChild(d);
   }
   const st = c.isCheckmate()
@@ -181,6 +239,7 @@ function render() {
       ? "Explorando variante " + preview.ply + "/" + preview.total
       : "lance " + ply + "/" + moves.length);
   $("return-main").hidden = !preview;
+  $("train-position").disabled = !!preview;
   renderPlayers(c);
   const shownPly = preview ? preview.ply : ply,
     total = preview ? preview.total : moves.length;
@@ -224,7 +283,7 @@ function render() {
     try {
       localStorage.setItem(
         "xsf_current",
-        JSON.stringify({ pgn: record().pgn(), ply })
+        JSON.stringify({ pgn: record().pgn(), ply, gameMode, humanColor })
       );
     } catch {
       notice(
@@ -233,6 +292,7 @@ function render() {
     }
   }
   updateAnalysis();
+  syncBot();
 }
 function ChessFromPgn(pgn) {
   const g = new Chess();
@@ -242,6 +302,7 @@ function ChessFromPgn(pgn) {
 function clickSq(sq) {
   if (preview) return;
   const c = cur();
+  if (gameMode === "bot" && c.turn() !== humanColor) return;
   if (c.isGameOver()) return;
   const options = selected
     ? c.moves({ square: selected, verbose: true }).filter(m => m.to === sq)
@@ -279,6 +340,7 @@ function playMove(to, promotion = "q") {
   }
 }
 function go(n) {
+  bot.cancel();
   if (preview) preview.ply = Math.max(0, Math.min(preview.total, n));
   else ply = Math.max(0, Math.min(moves.length, n));
   selected = null;
@@ -305,6 +367,12 @@ function newGame() {
     )
   )
     return;
+  bot.cancel();
+  engine.stop();
+  analysisKey = "";
+  gameMode = "bot";
+  humanColor = $("human-color").value;
+  flipped = humanColor === "b";
   moves = [];
   ply = 0;
   initialFen = new Chess().fen();
@@ -342,6 +410,8 @@ function downloadPGN() {
 function loadPGN(text) {
   try {
     const g = ChessFromPgn(text);
+    bot.cancel();
+    gameMode = "study";
     moves = g.history();
     initialFen = g.history({ verbose: true })[0]?.before || g.fen();
     headers = g.getHeaders();
@@ -389,26 +459,46 @@ function buildDBFromText(text) {
         R: h.Result || "*",
         E: h.Event || "",
         O: h.Opening || h.ECO || "",
+        ...classify(g.history()),
         D: h.Date || h.UTCDate || "",
       };
     });
+    libraryGeneration++;
     db = next;
+    populateFilters();
     notice();
     renderDB();
   } catch {
     notice("A base contém PGN inválido. A biblioteca anterior foi preservada.");
   }
 }
-function renderDB() {
-  const q = $("q").value.toLowerCase(),
-    list = db.filter(g =>
-      (g.W + " " + g.B + " " + g.E + " " + g.O + " " + g.D)
-        .toLowerCase()
-        .includes(q)
-    );
+let dbPage = 0;
+function renderDB(reset = true) {
+  if (reset) dbPage = 0;
+  const list = db.filter(g =>
+    matchesGame(g, {
+      query: $("q").value,
+      player1: $("player1").value,
+      player2: $("player2").value,
+      opening: $("opening-filter").value,
+      defense: $("defense-filter").value,
+    })
+  );
+  dbPage = Math.max(0, Math.min(dbPage, Math.ceil(list.length / 50) - 1));
+  $("db-page").textContent =
+    "Página " +
+    (dbPage + 1) +
+    " de " +
+    Math.max(1, Math.ceil(list.length / 50));
+  $("db-prev").disabled = dbPage === 0;
+  $("db-next").disabled = (dbPage + 1) * 50 >= list.length;
   $("dbcount").textContent = list.length + " de " + db.length + " partidas";
-  const totalLabel=document.createElement('small');totalLabel.textContent=' partidas';
-  $("library-total").replaceChildren(document.createTextNode(String(db.length)),totalLabel);
+  const totalLabel = document.createElement("small");
+  totalLabel.textContent = " partidas";
+  $("library-total").replaceChildren(
+    document.createTextNode(String(db.length)),
+    totalLabel
+  );
   $("dblist").replaceChildren();
   if (!list.length) {
     const empty = document.createElement("p");
@@ -417,12 +507,14 @@ function renderDB() {
       "Nenhuma partida encontrada. Tente outro jogador ou abertura.";
     $("dblist").appendChild(empty);
   }
-  list.slice(0, 500).forEach(g => {
+  list.slice(dbPage * 50, (dbPage + 1) * 50).forEach(g => {
     const d = document.createElement("button");
     d.className = "gitem";
     d.textContent = g.W + " × " + g.B;
     const meta = document.createElement("small");
-    meta.textContent = [g.R, g.E, g.D, g.O].filter(Boolean).join(" · ");
+    meta.textContent = [g.R, g.E, g.D, g.opening, g.defense, g.eco, g.O]
+      .filter(Boolean)
+      .join(" · ");
     d.appendChild(meta);
     d.onclick = () => {
       if (loadPGN(g.pgn)) tabTo(0);
@@ -518,6 +610,15 @@ function renderSaved() {
 }
 function updateAnalysis(force = false) {
   if (preview) return;
+  if (botTurn()) {
+    clearTimeout(timer);
+    $("evaltxt").textContent='…';$("depthtxt").textContent='';
+    $("eval-perspective").textContent='Vez do bot';
+    $("coach").textContent =
+      "O bot está escolhendo a resposta. A análise retorna na sua vez.";
+    analysisKey = "";
+    return;
+  }
   const g = record(ply),
     key = g.fen() + "|" + g.pgn();
   if (!force && key === analysisKey) return;
@@ -666,6 +767,7 @@ function showCandidates(fen, candidates, depth, origin) {
       c.line.forEach(san => branch.move(san));
       preview = { pgn: branch.pgn(), ply: 0, total: c.line.length };
       clearTimeout(timer);
+      bot.cancel();
       engine.stop();
       selected = null;
       render();
@@ -746,16 +848,101 @@ document.addEventListener("keydown", e => {
 });
 try {
   const saved = JSON.parse(localStorage.getItem("xsf_current") || "null");
-  if (saved?.pgn && loadPGN(saved.pgn))
+  if (saved?.pgn && loadPGN(saved.pgn)) {
     ply = Math.max(0, Math.min(moves.length, Number(saved.ply) || 0));
+    gameMode = saved.gameMode === "bot" ? "bot" : "study";
+    humanColor = saved.humanColor === "b" ? "b" : "w";
+  }
 } catch {
   /* Empty or invalid old autosave; explicit saved games remain unchanged. */
 }
+$("game-mode").onchange = () => {
+  bot.cancel();
+  engine.stop();
+  gameMode = $("game-mode").value;
+  analysisKey = "";
+  render();
+};
+$("human-color").onchange = () => {
+  bot.cancel();
+  engine.stop();
+  humanColor = $("human-color").value;
+  flipped = humanColor === "b";
+  analysisKey = "";
+  render();
+};
+$("bot-level").onchange = () => {
+  bot.cancel();
+  syncBot();
+};
 render();
 renderSaved();
-buildDBFromText(__GAMES_PGN__);
+function populateFilters() {
+  for (const [id, key, label] of [
+    ["opening-filter", "opening", "Todas as aberturas"],
+    ["defense-filter", "defense", "Todas as defesas"],
+  ]) {
+    const select = $(id);
+    select.replaceChildren(new Option(label, ""));
+    const counts = new Map();
+    db.forEach(g => counts.set(g[key], (counts.get(g[key]) || 0) + 1));
+    [...counts]
+      .sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
+      .forEach(([name, count]) =>
+        select.add(new Option(name + " (" + count + ")", name))
+      );
+  }
+}
+const embeddedGeneration = libraryGeneration;
+window.libraryReady = (async () => {
+  try {
+    const bytes = Uint8Array.from(atob(__LIBRARY_GZIP__), c => c.charCodeAt(0));
+    const loaded = await new Response(
+      new Response(bytes).body.pipeThrough(new DecompressionStream("gzip"))
+    ).json();
+    if (disposed || libraryGeneration !== embeddedGeneration) return;
+    db = loaded;
+    populateFilters();
+    renderDB();
+  } catch {
+    if (disposed) return;
+    $("dbcount").textContent =
+      "Não foi possível abrir a base. Use um navegador atualizado ou importe seu PGN.";
+  }
+})();
+$("db-prev").onclick = () => {
+  dbPage--;
+  renderDB(false);
+};
+$("db-next").onclick = () => {
+  dbPage++;
+  renderDB(false);
+};
+$("clear-filters").onclick = () => {
+  for (const id of [
+    "q",
+    "player1",
+    "player2",
+    "opening-filter",
+    "defense-filter",
+  ])
+    $(id).value = "";
+  renderDB();
+};
+$("train-position").onclick = () => {
+  bot.cancel();
+  moves = moves.slice(0, ply);
+  gameMode = "bot";
+  preview = null;
+  headers.Result = "*";
+  analysisKey = "";
+  render();
+  notice("Treino iniciado a partir da posição selecionada.");
+};
 engine.init();
 window.addEventListener("pagehide", () => {
+  disposed = true;
   clearTimeout(timer);
+  bot.cancel();
   engine.dispose();
 });
