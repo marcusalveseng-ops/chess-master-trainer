@@ -19,6 +19,15 @@ function app(legacy?: object[], blockedWorkers=false) {
   return {dom,document,errors,click,square,close:()=>{dom.window.dispatchEvent(new dom.window.Event('pagehide'));dom.window.close();}};
 }
 describe('single-file Tess export',()=>{
+  it('saves the complete main game while reviewing an earlier move',()=>{
+    const a=app();a.square('e2');a.square('e4');a.square('e7');a.square('e5');a.dom.window.go(0);a.dom.window.saveGame();
+    expect(JSON.parse(a.dom.window.localStorage.getItem('xsf_saved')!)[0].pgn).toContain('1. e4 e5');a.close();
+  });
+  it('switches navigation panels and exposes coordinates',()=>{
+    const a=app();a.click('.main-nav [data-panel="1"]');expect(a.document.querySelector('#p1')?.hasAttribute('hidden')).toBe(false);
+    expect(a.document.querySelector('#tab1')?.getAttribute('aria-selected')).toBe('true');
+    expect(a.document.querySelectorAll('#board .coord')).toHaveLength(16);a.close();
+  });
   it('produces alternatives when hosting blocks Workers and the CDN is offline',async()=>{
     const a=app(undefined,true);
     try {
@@ -62,6 +71,13 @@ describe('single-file Tess export',()=>{
 describe('Stockfish search synchronization',()=>{
   function engine(){const result=vi.fn();const coach=new StockfishCoach(result,vi.fn());coach.worker={postMessage:vi.fn(),terminate:vi.fn()};coach.ready=true;return {coach,result};}
   const position=(key:string)=>({key,fen:key,history:{startFen:key,moves:[]},depth:12,expected:1});
+  it('retains a coherent batch when the next update repeats a root move',()=>{
+    const {coach,result}=engine();coach.request({...position('root'),expected:3});
+    ['e2e4','d2d4','g1f3'].forEach((move,i)=>coach.message(`info depth 6 multipv ${i+1} score cp 20 pv ${move}`));
+    ['d2d4','e2e4','d2d4'].forEach((move,i)=>coach.message(`info depth 7 multipv ${i+1} score cp 30 pv ${move}`));
+    coach.message('bestmove d2d4');expect(result.mock.calls[0][0].depth).toBe(6);
+    expect(new Set(result.mock.calls[0][0].lines.map((l:any)=>l.uci[0])).size).toBe(3);
+  });
   it('waits for the old bestmove barrier before starting a new position',()=>{
     const {coach,result}=engine();coach.request(position('old'));coach.request(position('new'));
     coach.message('info depth 8 score cp 100 pv e2e4');expect(result).not.toHaveBeenCalled();
@@ -74,7 +90,7 @@ describe('Stockfish search synchronization',()=>{
   });
   it('publishes the last fully completed MultiPV depth',()=>{
     const {coach,result}=engine();coach.request({...position('root'),expected:3});
-    for(let i=1;i<=3;i++)coach.message(`info depth 6 multipv ${i} score cp ${40-i} pv e2e4 e7e5`);
+    for(let i=1;i<=3;i++)coach.message(`info depth 6 multipv ${i} score cp ${40-i} pv ${['e2e4','d2d4','g1f3'][i-1]} e7e5`);
     coach.message('info depth 7 multipv 1 score cp 55 pv d2d4 d7d5');coach.message('bestmove d2d4');
     expect(result.mock.calls[0][0]).toMatchObject({depth:6});expect(result.mock.calls[0][0].lines).toHaveLength(3);
   });

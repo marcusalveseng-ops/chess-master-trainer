@@ -8,6 +8,20 @@ import { validatePGN, parsePGN } from './pgn-utils';
 const ctx: any = { user: { id: 1 }, req: {}, res: {} };
 beforeEach(() => vi.clearAllMocks());
 describe('game persistence contract', () => {
+  it('rejects reading or writing key positions belonging to another user', async () => {
+    const insert=vi.fn();
+    mocks.getDb.mockResolvedValue({select:()=>({from:()=>({where:()=>({limit:async()=>[{id:42,userId:2}]})})}),insert});
+    const caller=gamePersistenceRouter.createCaller(ctx);
+    await expect(caller.markKeyPosition({gameId:42,fen:new Chess().fen(),moveNumber:0})).rejects.toMatchObject({code:'NOT_FOUND'});
+    await expect(caller.getKeyPositions({gameId:42})).rejects.toMatchObject({code:'NOT_FOUND'});
+    expect(insert).not.toHaveBeenCalled();
+  });
+  it('allows the owner to mark a key position', async () => {
+    const values=vi.fn().mockResolvedValue({});
+    mocks.getDb.mockResolvedValue({select:()=>({from:()=>({where:()=>({limit:async()=>[{id:42,userId:1}]})})}),insert:()=>({values})});
+    await expect(gamePersistenceRouter.createCaller(ctx).markKeyPosition({gameId:42,fen:new Chess().fen(),moveNumber:0})).resolves.toEqual({success:true});
+    expect(values).toHaveBeenCalledOnce();
+  });
   it('returns the database id after saving', async () => {
     mocks.getDb.mockResolvedValue({ insert: () => ({ values: async () => [{ insertId: 42 }] }) });
     expect(await gamePersistenceRouter.createCaller(ctx).saveGame({ pgn: '1. e4 e5', title: 'Test' })).toEqual({ success: true, gameId: 42 });

@@ -4,6 +4,8 @@ const root=new URL('../',import.meta.url);
 const pgn=await fs.readFile(new URL('standalone/games.pgn',root),'utf8');
 const bundle=await build({entryPoints:[new URL('standalone/app.js',root).pathname.replace(/^\/([A-Za-z]:)/,'$1')],bundle:true,write:false,format:'iife',minify:true,define:{__GAMES_PGN__:JSON.stringify(pgn)},legalComments:'inline'});
 let html=await fs.readFile(new URL('standalone/template.html',root),'utf8');
+const styles=await fs.readFile(new URL('standalone/style.css',root),'utf8');
+html=html.replace('<!-- STYLES -->',()=>`<style>${styles}</style>`);
 html=html.replace('<!-- APPLICATION -->',()=>`<script>${bundle.outputFiles[0].text.replaceAll('</script','<\\/script')}</script>`);
 await fs.mkdir(new URL('dist/tess/',root),{recursive:true});
 await fs.writeFile(new URL('dist/tess/index.html',root),html);

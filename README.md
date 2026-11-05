@@ -25,6 +25,8 @@ O restante do projeto React/Express/MySQL e a integração de explicação onlin
 
 ## Validação
 
+A interface da exportação Tess foi atualizada com base no protótipo visual fornecido pelo usuário. Veja [a revisão de 04/11/2026](docs/REVISAO_2026-11-04.md) para correções, testes e melhorias pendentes. Salvar grava a partida principal inteira; exportar a posição exibida grava apenas os lances até aquela posição.
+
 ```sh
 pnpm check
 pnpm test

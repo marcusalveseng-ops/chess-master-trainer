@@ -1,106 +1,331 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Chess Unificado • Stockfish e Assistente</title>
-
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,'Segoe UI',Arial,sans-serif;background:#1a1c22;color:#e8e8ea;min-height:100vh}
-header{padding:14px 22px;background:#22252d;border-bottom:1px solid #333;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-header h1{font-size:1.15rem;font-weight:600}
-header span{color:#8a8f9c;font-size:.8rem}
-.layout{display:flex;flex-wrap:wrap;gap:22px;padding:22px;justify-content:center}
-.board-wrap{display:flex;gap:10px}
-#evalbar{width:16px;background:#111;border-radius:4px;overflow:hidden;display:flex;flex-direction:column-reverse;border:1px solid #333}
-#evalfill{background:#eee;width:100%;height:50%;transition:height .4s}
-#board{display:grid;grid-template-columns:repeat(8,1fr);width:min(86vw,560px);height:min(86vw,560px);border:3px solid #3a3f4b;border-radius:4px;overflow:hidden;user-select:none}
-.sq{display:flex;align-items:center;justify-content:center;font-size:clamp(24px,6.5vw,44px);cursor:pointer;position:relative;line-height:1}
-.sq.l{background:#f0d9b5}.sq.d{background:#b58863}
-.sq.sel{outline:3px solid #4f9dff;outline-offset:-3px}
-.sq.last{box-shadow:inset 0 0 0 100px rgba(255,220,60,.35)}
-.sq.tgt::after{content:"";position:absolute;width:26%;height:26%;border-radius:50%;background:rgba(20,90,200,.45)}
-.sq .wp{color:#fff;text-shadow:0 1px 2px #333}.sq .bp{color:#111}
-.controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-button{background:#2e3340;color:#e8e8ea;border:1px solid #444;border-radius:6px;padding:7px 12px;cursor:pointer;font-size:.85rem}
-button:hover{background:#3a4152}
-button.pri{background:#2563eb;border-color:#2563eb}
-#status{margin-top:8px;color:#aab;font-size:.9rem}
-#moves{margin-top:10px;line-height:1.9;font-size:.92rem;max-height:120px;overflow-y:auto;background:#181a20;padding:8px;border-radius:6px;width:min(86vw,588px)}
-#moves span{cursor:pointer;padding:1px 4px;border-radius:3px}
-#moves span.cur{background:#2563eb;color:#fff}
-#moves b{color:#778;font-weight:500;margin-left:6px}
-aside{width:min(94vw,430px);background:#22252d;border:1px solid #333;border-radius:8px;display:flex;flex-direction:column;max-height:740px}
-.tabs{display:flex;border-bottom:1px solid #333}
-.tabs button{flex:1;border:none;border-radius:0;background:none;padding:11px 4px;color:#99a}
-.tabs button.on{color:#fff;border-bottom:2px solid #2563eb;background:#262a33}
-.panel{padding:14px;overflow-y:auto;flex:1;display:none}
-.panel.on{display:block}
-.evalbox{font-size:1.7rem;font-weight:700;margin:6px 0}
-#pvline{color:#9fb4d8;font-size:.88rem;line-height:1.6;min-height:44px}
-.gitem{padding:9px 10px;border-bottom:1px solid #2c303a;cursor:pointer;font-size:.86rem}
-.gitem:hover{background:#2a2f3a}
-.gitem small{color:#889;display:block}
-input[type=text],textarea,select{background:#181a20;border:1px solid #3a3f4b;color:#eee;border-radius:6px;padding:8px;font-size:.88rem}
-input[type=text],textarea{width:100%}
-textarea{min-height:130px;font-family:monospace;resize:vertical}
-.row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;align-items:center}
-label.chk{font-size:.85rem;color:#aab;display:flex;gap:6px;align-items:center}
-.muted{color:#778;font-size:.8rem}
-.sq{border:0;border-radius:0;padding:0;font:inherit;font-size:clamp(24px,6.5vw,44px)}.sq:focus-visible{outline:3px solid #60a5fa;outline-offset:-3px}.candidate{padding:12px 0;border-bottom:1px solid #3a3f4b}.candidate p{font-size:.85rem;margin:7px 0;line-height:1.5}.candidate button{margin-top:6px}#notice{color:#ffb79f;font-size:.85rem;margin-top:8px}#save-name{margin-top:10px;max-width:560px}.layout>div:first-child{max-width:100%}#promotion{padding:10px}#promotion button{margin:4px}#return-main{margin-top:8px}#status{max-width:560px}footer{padding:12px 22px;color:#99a;font-size:.8rem}#board{font-size:40px}</style>
-</head>
-<body>
-<header><h1>♞ Chess — Stockfish e Assistente</h1><span>PGN • Base de partidas • Motor no navegador</span></header>
-<div class="layout">
-<div>
-<div class="board-wrap"><div id="evalbar"><div id="evalfill"></div></div><div id="board"></div></div>
-<div class="controls">
-<button onclick="go(0)">⏮</button><button onclick="goBack()">◀</button><button onclick="goNext()">▶</button><button onclick="goEnd()">⏭</button>
-<button onclick="newGame()">Novo jogo</button><button onclick="flipBoard()">Girar ↺</button>
-</div>
-<div id="status" role="status"></div><div id="promotion" hidden></div><button id="return-main" hidden>Voltar à partida</button><input id="save-name" type="text" aria-label="Nome da partida" placeholder="Nome da partida para salvar"><div id="notice" role="alert"></div>
-<div id="moves"></div>
-</div>
-<aside aria-label="Análise e biblioteca">
-<div class="tabs">
-<button class="on" onclick="tab(0,this)">Análise</button>
-<button onclick="tab(1,this)">Base</button>
-<button onclick="tab(2,this)">Salvas</button>
-<button onclick="tab(3,this)">PGN</button>
-</div>
-<div class="panel on" id="p0">
-<div id="sfstatus" class="muted">Carregando Stockfish…</div>
-<div class="evalbox" id="evaltxt">0.00</div>
-<div class="muted" id="depthtxt"></div>
-<div id="pvline"></div><div id="coach" aria-live="polite"></div>
-<div class="row">
-<button class="pri" onclick="analyze(true)">Analisar posição</button>
-<label class="chk"><input type="checkbox" id="autoA" checked> automático</label>
-<select aria-label="Profundidade da análise" id="depthSel"><option value="12">Prof. 12</option><option value="16" selected>Prof. 16</option><option value="20">Prof. 20</option></select>
-</div>
-<div class="muted">Avaliação positiva favorece quem joga na posição analisada. As linhas são possibilidades, não garantias. Use as setas ← → para navegar.</div>
-</div>
-<div class="panel" id="p1">
-<div class="row"><input type="text" id="q" placeholder="Buscar jogador, evento, abertura…" oninput="renderDB()"></div>
-<div class="row"><button onclick="document.getElementById('dbfile').click()">📂 Carregar base .pgn</button><input type="file" id="dbfile" accept=".pgn" hidden><span class="muted" id="dbcount"></span></div>
-<div id="dblist"></div>
-</div>
-<div class="panel" id="p2">
-<div class="row"><button class="pri" onclick="saveGame()">💾 Salvar partida atual</button><button onclick="downloadSaved()">Baixar histórico PGN</button></div>
-<div class="muted">As partidas ficam neste navegador. Baixe seu histórico para fazer backup.</div>
-<div id="savedlist"></div>
-</div>
-<div class="panel" id="p3">
-<textarea id="pgnbox" placeholder="Cole um PGN aqui…"></textarea>
-<div class="row">
-<button class="pri" onclick="importBox()">Importar</button>
-<button onclick="document.getElementById('onefile').click()">Abrir arquivo</button><input type="file" id="onefile" accept=".pgn" hidden>
-<button onclick="exportPGN()">Exportar atual</button>
-<button onclick="downloadPGN()">⬇ Baixar .pgn</button>
-</div>
-<div class="muted">“Exportar atual” preenche a caixa acima com o PGN da partida no tabuleiro. Arquivos com várias partidas vão para a aba Base.</div>
-</div>
-</aside>
-</div>
-<!-- APPLICATION --><footer>Uma aplicação • fonte: chess-master-trainer • Motor Stockfish 10.0.2, GPLv3: <a href="https://github.com/niklasf/stockfish.js" target="_blank" rel="noopener">código-fonte do motor</a> · Assistente local experimental como alternativa.</footer></body></html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#262522" />
+    <title>Chess • Seu espaço de xadrez</title>
+    <!-- STYLES -->
+  </head>
+  <body>
+    <a class="skip-link" href="#board">Ir para o tabuleiro</a>
+    <aside class="sidebar" aria-label="Navegação principal">
+      <a class="brand" href="#board"
+        ><span class="brand-piece" aria-hidden="true">♞</span
+        ><span>Chess<b>Seu espaço de xadrez</b></span></a
+      >
+      <nav class="main-nav" aria-label="Áreas do aplicativo">
+        <button class="active" data-panel="0" aria-current="page">
+          <span aria-hidden="true">♟</span>Jogar e analisar
+        </button>
+        <button data-panel="1">
+          <span aria-hidden="true">▤</span>Biblioteca
+        </button>
+        <button data-panel="2">
+          <span aria-hidden="true">◷</span>Minhas partidas
+        </button>
+        <button data-panel="3">
+          <span aria-hidden="true">⇅</span>Importar PGN
+        </button>
+      </nav>
+      <div class="library-note">
+        <span class="eyebrow">APRENDA COM OS MESTRES</span
+        ><strong id="library-total">205 <small>partidas</small></strong>
+        <p>Explore cada lance. Descubra novos planos.</p>
+        <button class="subtle" data-panel="1">Explorar biblioteca →</button>
+      </div>
+      <div class="sidebar-bottom">
+        <span class="status-dot"></span> Seu treino, no seu navegador<small
+          >Salve e baixe suas partidas para guardar uma cópia.</small
+        >
+      </div>
+    </aside>
+    <main>
+      <header class="page-heading">
+        <div>
+          <span class="eyebrow">PRATIQUE · EXPLORE · EVOLUA</span>
+          <h1>Uma boa jogada começa aqui.</h1>
+        </div>
+        <span class="local-badge"
+          ><span class="status-dot"></span> Análise local</span
+        >
+      </header>
+      <div class="workspace">
+        <section class="game-area" aria-label="Partida de xadrez">
+          <div class="player-row" id="player-top">
+            <span class="avatar" aria-hidden="true">♚</span>
+            <div class="player-info">
+              <strong class="player-name">Pretas</strong
+              ><span class="captured"></span>
+            </div>
+            <span class="turn-badge"></span>
+          </div>
+          <div class="board-wrap">
+            <div id="evalbar" role="img" aria-label="Equilíbrio da posição">
+              <div id="evalfill"></div>
+            </div>
+            <div
+              id="board"
+              tabindex="-1"
+              aria-label="Tabuleiro de xadrez"
+            ></div>
+          </div>
+          <div class="player-row" id="player-bottom">
+            <span class="avatar white" aria-hidden="true">♚</span>
+            <div class="player-info">
+              <strong class="player-name">Brancas</strong
+              ><span class="captured"></span>
+            </div>
+            <span class="turn-badge"></span>
+          </div>
+          <div class="game-toolbar">
+            <div class="controls" aria-label="Navegar pelos lances">
+              <button
+                id="first-move"
+                onclick="go(0)"
+                aria-label="Primeiro lance"
+                title="Início (Home)"
+              >
+                ⏮</button
+              ><button
+                id="previous-move"
+                onclick="goBack()"
+                aria-label="Lance anterior"
+                title="Lance anterior (←)"
+              >
+                ◀</button
+              ><button
+                id="next-move"
+                onclick="goNext()"
+                aria-label="Próximo lance"
+                title="Próximo lance (→)"
+              >
+                ▶</button
+              ><button
+                id="last-move"
+                onclick="goEnd()"
+                aria-label="Último lance"
+                title="Final (End)"
+              >
+                ⏭
+              </button>
+            </div>
+            <button
+              class="subtle"
+              onclick="flipBoard()"
+              title="Girar tabuleiro"
+            >
+              ↻ Girar</button
+            ><button class="pri" onclick="newGame()">＋ Nova partida</button>
+          </div>
+          <div id="status" role="status"></div>
+          <div
+            id="promotion"
+            role="group"
+            aria-label="Escolha a peça da promoção"
+            hidden
+          ></div>
+          <button id="return-main" class="pri" hidden>
+            ← Voltar à partida
+          </button>
+          <div id="notice" role="alert"></div>
+          <section class="move-sheet" aria-label="Histórico de lances">
+            <div class="section-label">
+              <h2>Lances da partida</h2>
+              <span id="move-counter" class="muted">Posição inicial</span>
+            </div>
+            <div id="moves"></div>
+          </section>
+        </section>
+        <aside class="analysis-panel" aria-label="Análise e biblioteca">
+          <div class="panel-heading">
+            <span class="assistant-icon" aria-hidden="true">♞</span>
+            <div>
+              <h2 id="panel-title">Seu assistente de xadrez</h2>
+              <p id="panel-subtitle">Veja possibilidades antes de decidir.</p>
+            </div>
+          </div>
+          <div class="tabs" role="tablist" aria-label="Ferramentas da partida">
+            <button
+              class="on"
+              id="tab0"
+              role="tab"
+              aria-selected="true"
+              aria-controls="p0"
+              onclick="tab(0)"
+            >
+              Análise
+            </button>
+            <button
+              id="tab1"
+              role="tab"
+              aria-selected="false"
+              aria-controls="p1"
+              tabindex="-1"
+              onclick="tab(1)"
+            >
+              Biblioteca
+            </button>
+            <button
+              id="tab2"
+              role="tab"
+              aria-selected="false"
+              aria-controls="p2"
+              tabindex="-1"
+              onclick="tab(2)"
+            >
+              Salvas
+            </button>
+            <button
+              id="tab3"
+              role="tab"
+              aria-selected="false"
+              aria-controls="p3"
+              tabindex="-1"
+              onclick="tab(3)"
+            >
+              PGN
+            </button>
+          </div>
+          <section
+            class="panel on"
+            id="p0"
+            role="tabpanel"
+            aria-labelledby="tab0"
+          >
+            <div class="evaluation">
+              <div>
+                <span class="eyebrow">AVALIAÇÃO DA POSIÇÃO</span>
+                <div class="evalbox" id="evaltxt">…</div>
+              </div>
+              <div class="eval-detail">
+                <span id="eval-perspective">Vez das brancas</span
+                ><span class="muted" id="depthtxt"></span>
+              </div>
+            </div>
+            <div id="sfstatus" class="engine-status" role="status">
+              Carregando Stockfish…
+            </div>
+            <div class="analysis-settings">
+              <label class="chk"
+                ><input type="checkbox" id="autoA" checked /> Análise
+                automática</label
+              ><select aria-label="Profundidade da análise" id="depthSel">
+                <option value="12">Até 12 meios-lances</option>
+                <option value="16" selected>Até 16 meios-lances</option>
+                <option value="20">Até 20 meios-lances</option>
+              </select>
+            </div>
+            <div class="section-label">
+              <h3>Possibilidades</h3>
+              <span class="muted">Compare os caminhos</span>
+            </div>
+            <div id="pvline"></div>
+            <div id="coach" aria-live="polite" aria-atomic="true"></div>
+            <button class="pri analyze-button" onclick="analyze(true)">
+              Analisar esta posição
+            </button>
+            <p class="help-text">
+              Valor positivo favorece quem tem a vez. Explore uma variante com
+              as setas e depois retorne à sua partida. As linhas são
+              possibilidades, não garantias.
+            </p>
+          </section>
+          <section
+            class="panel"
+            id="p1"
+            role="tabpanel"
+            aria-labelledby="tab1"
+            hidden
+          >
+            <label class="field-label" for="q">Encontre uma partida</label
+            ><input
+              type="search"
+              id="q"
+              placeholder="Jogador, evento ou abertura…"
+              oninput="renderDB()"
+            />
+            <div class="row">
+              <button onclick="document.getElementById('dbfile').click()">
+                ＋ Carregar base PGN</button
+              ><input type="file" id="dbfile" accept=".pgn" hidden /><span
+                class="muted"
+                id="dbcount"
+                role="status"
+              ></span>
+            </div>
+            <div id="dblist"></div>
+          </section>
+          <section
+            class="panel"
+            id="p2"
+            role="tabpanel"
+            aria-labelledby="tab2"
+            hidden
+          >
+            <label class="field-label" for="save-name">Nome da partida</label
+            ><input
+              id="save-name"
+              type="text"
+              maxlength="120"
+              placeholder="Ex.: Meu estudo da Siciliana"
+            />
+            <div class="row">
+              <button class="pri" onclick="saveGame()">
+                Salvar partida completa</button
+              ><button onclick="downloadSaved()">Baixar histórico PGN</button>
+            </div>
+            <p class="help-text">
+              Mesmo ao revisar um lance anterior, a partida principal é salva
+              por inteiro. Seu histórico fica neste navegador.
+            </p>
+            <div id="savedlist"></div>
+          </section>
+          <section
+            class="panel"
+            id="p3"
+            role="tabpanel"
+            aria-labelledby="tab3"
+            hidden
+          >
+            <label class="field-label" for="pgnbox"
+              >Importar ou exportar uma partida</label
+            ><textarea
+              id="pgnbox"
+              placeholder="Cole seu PGN aqui…"
+              spellcheck="false"
+            ></textarea>
+            <div class="row">
+              <button class="pri" onclick="importBox()">Importar PGN</button
+              ><button onclick="document.getElementById('onefile').click()">
+                Abrir arquivo</button
+              ><input type="file" id="onefile" accept=".pgn" hidden />
+            </div>
+            <div class="row">
+              <button onclick="exportPGN()">Exportar posição exibida</button
+              ><button onclick="downloadPGN()">Baixar PGN exibido</button>
+            </div>
+            <p class="help-text">
+              A exportação inclui os lances até a posição exibida. Para guardar
+              toda a partida, use a aba Salvas. Arquivos com várias partidas
+              abrem na Biblioteca.
+            </p>
+          </section>
+        </aside>
+      </div>
+      <footer>
+        Chess · Treino e análise no navegador
+        <span
+          >Stockfish 10.0.2 ·
+          <a
+            href="https://github.com/niklasf/stockfish.js"
+            target="_blank"
+            rel="noopener"
+            >Código-fonte GPLv3</a
+          ></span
+        >
+      </footer>
+    </main>
+    <!-- APPLICATION -->
+  </body>
+</html>
