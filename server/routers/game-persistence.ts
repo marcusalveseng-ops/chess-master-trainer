@@ -6,6 +6,11 @@ import { games, keyPositions } from '../../drizzle/schema';
 import { eq, and } from 'drizzle-orm';
 import { Chess } from 'chess.js';
 
+async function requireOwnedGame(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, gameId: number, userId: number) {
+  const [game] = await db.select().from(games).where(and(eq(games.id, gameId), eq(games.userId, userId))).limit(1);
+  if (!game || game.userId !== userId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Partida não encontrada.' });
+}
+
 export const gamePersistenceRouter = router({
   // Save a game
   saveGame: protectedProcedure
@@ -36,6 +41,7 @@ export const gamePersistenceRouter = router({
 
         return { success: true, gameId: saved.insertId };
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error('Save game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -64,6 +70,7 @@ export const gamePersistenceRouter = router({
 
         return userGames;
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error('Get games error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -97,6 +104,7 @@ export const gamePersistenceRouter = router({
 
         return game[0];
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error('Get game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -133,6 +141,7 @@ export const gamePersistenceRouter = router({
 
         return { success: true };
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error('Update game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -157,6 +166,7 @@ export const gamePersistenceRouter = router({
 
         return { success: true };
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error('Delete game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -178,6 +188,7 @@ export const gamePersistenceRouter = router({
         const db = await getDb();
         if (!db) throw new Error('Database not available');
 
+        await requireOwnedGame(db, input.gameId, ctx.user.id);
         await db.insert(keyPositions).values({
           gameId: input.gameId,
           fen: input.fen,
@@ -188,6 +199,7 @@ export const gamePersistenceRouter = router({
 
         return { success: true };
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error('Mark key position error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -206,6 +218,7 @@ export const gamePersistenceRouter = router({
         const db = await getDb();
         if (!db) throw new Error('Database not available');
 
+        await requireOwnedGame(db, input.gameId, ctx.user.id);
         const positions = await db
           .select()
           .from(keyPositions)
@@ -213,6 +226,7 @@ export const gamePersistenceRouter = router({
 
         return positions;
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error('Get key positions error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
