@@ -1,0 +1,24 @@
+{
+  "sources": [
+    {
+      "path": "standalone/games.pgn",
+      "count": 205,
+      "sha256": "da60ef194edf730b1be3b57b13991cc2060e0fe293bb074ecb06dfbafc02bf2c"
+    },
+    {
+      "path": "review/library-source/carlsen/Carlsen.pgn",
+      "count": 7818,
+      "sha256": "ba4591237a43c27fa19a9b3539ba5ce136ea93b65a9800418865b1d0a8090853"
+    },
+    {
+      "path": "review/library-source/nakamura/Nakamura.pgn",
+      "count": 10220,
+      "sha256": "3ff7a8eac999be668e8be72de7517b76b5634e94bac900b6bf59c3c1b4b709af"
+    }
+  ],
+  "duplicates": 412,
+  "rejected": [],
+  "count": 17831,
+  "openings": 26,
+  "defenses": 19
+}
