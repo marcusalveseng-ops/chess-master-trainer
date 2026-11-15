@@ -664,7 +664,10 @@ function updateAnalysis(force = false) {
       });
       showCandidates(
         g.fen(),
-        result.candidates,
+        result.candidates.map(candidate => ({
+          ...candidate,
+          risks: explainCandidate(g.fen(), candidate.line, candidate.score).risks,
+        })),
         result.depth,
         "Assistente local"
       );
