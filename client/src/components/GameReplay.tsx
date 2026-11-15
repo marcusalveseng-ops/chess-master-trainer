@@ -153,7 +153,7 @@ export default function GameReplay({ pgn, title = 'Game Replay', showAnalysis = 
         </TabsContent>
 
         <TabsContent value="analysis" className="space-y-4">
-          <PostGameAnalysis pgn={pgn} />
+          <PostGameAnalysis key={pgn} pgn={pgn} />
         </TabsContent>
       </Tabs>
     </div>

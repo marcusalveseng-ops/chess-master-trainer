@@ -20,12 +20,8 @@ export function PostGameAnalysis({ pgn, playerColor = 'white' }: PostGameAnalysi
     playerColor,
   });
 
-  // Generate AI commentary
-  const commentaryQuery = trpc.gameAnalysis.generateAICommentary.useQuery({
-    pgn,
-    playerColor,
-    includeStrategicAdvice: true,
-  });
+  const { data: user } = trpc.auth.me.useQuery();
+  const commentaryQuery = trpc.gameAnalysis.generateAICommentary.useMutation();
 
   // Get recommendations
   const recommendationsQuery = trpc.gameAnalysis.getRecommendations.useQuery({
@@ -37,7 +33,7 @@ export function PostGameAnalysis({ pgn, playerColor = 'white' }: PostGameAnalysi
   const commentary = commentaryQuery.data;
   const recommendations = recommendationsQuery.data;
 
-  if (analysisQuery.isLoading || commentaryQuery.isLoading) {
+  if (analysisQuery.isLoading) {
     return (
       <Card className="w-full">
         <CardHeader>
@@ -197,7 +193,19 @@ export function PostGameAnalysis({ pgn, playerColor = 'white' }: PostGameAnalysi
         </CardContent>
       </Card>
 
-      {/* AI Commentary */}
+      {user && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            className="rounded-md border px-3 py-2"
+            disabled={commentaryQuery.isPending}
+            onClick={() => commentaryQuery.mutate({ pgn, playerColor, includeStrategicAdvice: true })}
+          >
+            {commentaryQuery.isPending ? 'Gerando comentário…' : 'Gerar comentário online'}
+          </button>
+          {commentaryQuery.error && <p role="status">{commentaryQuery.error.message}</p>}
+        </div>
+      )}
       {commentary?.aiCommentary && (
         <Card>
           <CardHeader>
