@@ -1,4 +1,4 @@
-import { boolean, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, index, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -138,3 +138,8 @@ export const endgameAttempts = mysqlTable("endgameAttempts", {
 
 export type EndgameAttempt = typeof endgameAttempts.$inferSelect;
 export type InsertEndgameAttempt = typeof endgameAttempts.$inferInsert;
+
+export const revokedSessions = mysqlTable("revokedSessions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  expiresAt: timestamp("expiresAt").notNull(),
+}, table => [index("revokedSessions_expiry").on(table.expiresAt)]);

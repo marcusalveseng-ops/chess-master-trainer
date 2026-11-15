@@ -1,6 +1,6 @@
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, games, keyPositions, openingStudies, userProgress, Game, InsertGame, KeyPosition, InsertKeyPosition, OpeningStudy, InsertOpeningStudy, UserProgress, InsertUserProgress } from "../drizzle/schema";
+import { InsertUser, users, revokedSessions, games, keyPositions, openingStudies, userProgress, Game, InsertGame, KeyPosition, InsertKeyPosition, OpeningStudy, InsertOpeningStudy, UserProgress, InsertUserProgress } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -179,4 +179,19 @@ export async function updateUserProgress(userId: number, updates: Partial<UserPr
   } else {
     await db.insert(userProgress).values({ userId, ...updates });
   }
+}
+
+export async function isSessionRevoked(id: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Session store unavailable");
+  const [entry] = await db.select({ id: revokedSessions.id }).from(revokedSessions)
+    .where(eq(revokedSessions.id, id)).limit(1);
+  return Boolean(entry);
+}
+
+export async function revokeSession(id: string, expiresAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Session store unavailable");
+  await db.delete(revokedSessions).where(lte(revokedSessions.expiresAt, new Date()));
+  await db.insert(revokedSessions).ignore().values({ id, expiresAt });
 }

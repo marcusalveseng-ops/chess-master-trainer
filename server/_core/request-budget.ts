@@ -5,9 +5,9 @@ export function createRequestBudget(limit: number, durationMs: number) {
   let nextCleanup = 0;
   return (key: string, now = Date.now()) => {
     if (now >= nextCleanup) {
-      for (const [id, window] of windows) {
+      windows.forEach((window, id) => {
         if (now >= window.expires) windows.delete(id);
-      }
+      });
       nextCleanup = now + Math.min(durationMs, 60_000);
     }
     let window = windows.get(key);
