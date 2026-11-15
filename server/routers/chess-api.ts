@@ -42,7 +42,7 @@ export const chessApiRouter = router({
         const response = await lichessClient.get(`/opening?${params.toString()}`);
         return response.data;
       } catch (error) {
-        console.error('Lichess API error:', error);
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch opening statistics',
@@ -66,7 +66,7 @@ export const chessApiRouter = router({
           total: 0,
         };
       } catch (error) {
-        console.error('Search error:', error);
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to search games',
@@ -84,7 +84,7 @@ export const chessApiRouter = router({
         const response = await chessComClient.get(`/player/${input.username}`);
         return response.data;
       } catch (error) {
-        console.error('Chess.com API error:', error);
+
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Player not found',
@@ -110,7 +110,7 @@ export const chessApiRouter = router({
         const response = await chessComClient.get(url);
         return response.data;
       } catch (error) {
-        console.error('Chess.com API error:', error);
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch player games',
@@ -138,7 +138,7 @@ export const chessApiRouter = router({
           ],
         };
       } catch (error) {
-        console.error('Opening explorer error:', error);
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch opening explorer data',
@@ -170,7 +170,7 @@ export const chessApiRouter = router({
           ],
         };
       } catch (error) {
-        console.error('Famous games error:', error);
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch famous games',

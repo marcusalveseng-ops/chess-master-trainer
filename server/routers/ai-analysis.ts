@@ -93,7 +93,7 @@ Format your response as a JSON object with these fields:
 
         return JSON.parse(content);
       } catch (error) {
-        console.error('AI analysis error:', error);
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to generate strategic analysis',
@@ -159,7 +159,7 @@ Format as JSON with field: commentary`;
 
         return JSON.parse(content);
       } catch (error) {
-        console.error('Commentary generation error:', error);
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to generate move commentary',
@@ -228,7 +228,7 @@ Format as JSON with fields:
 
         return JSON.parse(content);
       } catch (error) {
-        console.error('Game phase analysis error:', error);
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to analyze game phase',
@@ -298,7 +298,7 @@ Format as JSON with fields:
 
         return JSON.parse(content);
       } catch (error) {
-        console.error('Opening recommendations error:', error);
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to generate opening recommendations',

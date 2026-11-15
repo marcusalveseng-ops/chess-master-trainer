@@ -119,7 +119,7 @@ export const pgnIORouter = router({
           errorCount++;
           results.push({
             success: false,
-            error: error instanceof Error ? error.message : 'Erro desconhecido',
+            error: 'Não foi possível importar esta partida.',
           });
         }
       }
@@ -303,7 +303,7 @@ export const pgnIORouter = router({
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Erro ao processar PGN',
+          error: 'Não foi possível processar o PGN.',
         };
       }
     }),

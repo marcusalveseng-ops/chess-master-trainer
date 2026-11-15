@@ -17,7 +17,7 @@ export const gameAnalysisRouter = router({
         const analysis = analyzeGame(input.pgn);
         return analysis;
       } catch (error) {
-        console.error('Game analysis error:', error);
+
         throw new Error('Failed to analyze game');
       }
     }),
@@ -37,7 +37,7 @@ export const gameAnalysisRouter = router({
           analysis
         };
       } catch (error) {
-        console.error('Commentary generation error:', error);
+
         throw new Error('Failed to generate commentary');
       }
     }),
@@ -90,7 +90,7 @@ Format your response in clear sections with markdown.`;
           success: true
         };
       } catch (error) {
-        console.error('AI commentary generation error:', error);
+
         throw new Error('Failed to generate AI commentary');
       }
     }),
@@ -117,7 +117,7 @@ Format your response in clear sections with markdown.`;
           commentary
         };
       } catch (error) {
-        console.error('Phase analysis error:', error);
+
         throw new Error('Failed to analyze phase');
       }
     }),
@@ -139,7 +139,7 @@ Format your response in clear sections with markdown.`;
           message: 'Game analysis saved'
         };
       } catch (error) {
-        console.error('Save analysis error:', error);
+
         throw new Error('Failed to save analysis');
       }
     }),
@@ -153,7 +153,7 @@ Format your response in clear sections with markdown.`;
         // For now, return empty
         return null;
       } catch (error) {
-        console.error('Fetch analysis error:', error);
+
         throw new Error('Failed to fetch analysis');
       }
     }),
@@ -183,7 +183,7 @@ Format your response in clear sections with markdown.`;
           totalMoves: analysis.totalMoves
         };
       } catch (error) {
-        console.error('Recommendations error:', error);
+
         throw new Error('Failed to generate recommendations');
       }
     }),

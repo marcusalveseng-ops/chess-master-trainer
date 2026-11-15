@@ -87,6 +87,7 @@ export async function notifyOwner(
   try {
     const response = await fetch(endpoint, {
       method: "POST",
+      signal: AbortSignal.timeout(10_000),
       headers: {
         accept: "application/json",
         authorization: `Bearer ${ENV.forgeApiKey}`,
@@ -97,18 +98,14 @@ export async function notifyOwner(
     });
 
     if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      console.warn(
-        `[Notification] Failed to notify owner (${response.status} ${response.statusText})${
-          detail ? `: ${detail}` : ""
-        }`
-      );
+      await response.body?.cancel();
+      console.warn("[Notification] Provider rejected the request", response.status);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.warn("[Notification] Error calling notification service:", error);
+    console.warn("[Notification] Error calling notification service:");
     return false;
   }
 }

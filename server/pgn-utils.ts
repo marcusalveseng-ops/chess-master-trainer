@@ -71,7 +71,7 @@ export function validatePGN(pgnText: string): { valid: boolean; errors: string[]
     parsePGN(pgnText);
     return { valid: true, errors: [] };
   } catch (error) {
-    return { valid: false, errors: [error instanceof Error ? error.message : 'PGN inválido'] };
+    return { valid: false, errors: [error instanceof TRPCError ? error.message : 'PGN inválido'] };
   }
 }
 

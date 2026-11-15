@@ -43,7 +43,6 @@ export const gamePersistenceRouter = router({
         return { success: true, gameId: saved.insertId };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Save game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to save game',
@@ -72,7 +71,6 @@ export const gamePersistenceRouter = router({
         return userGames;
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Get games error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch games',
@@ -106,7 +104,6 @@ export const gamePersistenceRouter = router({
         return game[0];
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Get game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch game',
@@ -143,7 +140,6 @@ export const gamePersistenceRouter = router({
         return { success: true };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Update game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to update game',
@@ -168,7 +164,6 @@ export const gamePersistenceRouter = router({
         return { success: true };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Delete game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to delete game',
@@ -201,7 +196,6 @@ export const gamePersistenceRouter = router({
         return { success: true };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Mark key position error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to mark key position',
@@ -228,7 +222,6 @@ export const gamePersistenceRouter = router({
         return positions;
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Get key positions error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch key positions',

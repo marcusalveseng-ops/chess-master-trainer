@@ -1,5 +1,6 @@
 import "dotenv/config";
-import express from "express";
+import express, { type ErrorRequestHandler } from "express";
+import { randomUUID } from "node:crypto";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -42,7 +43,7 @@ async function startServer() {
   app.use(
     "/api/trpc",
     (req, res, next) => {
-      res.set("Cache-Control", "no-store");
+      res.set({ "Cache-Control": "no-store", "X-Request-Id": randomUUID() });
       const origin = req.get("origin");
       const localOrigin = `http://${req.hostname}:${req.socket.localPort}`;
       const expectedOrigin = process.env.APP_ORIGIN ??
@@ -63,6 +64,11 @@ async function startServer() {
       maxBatchSize: 10,
       router: appRouter,
       createContext,
+      onError({ error, ctx }) {
+        if (error.code === "INTERNAL_SERVER_ERROR") {
+          console.error("[API] Internal error", ctx?.res.getHeader("x-request-id"));
+        }
+      },
     })
   );
   // development mode uses Vite, production mode uses static files
@@ -71,6 +77,15 @@ async function startServer() {
   } else {
     serveStatic(app);
   }
+
+  const handleError: ErrorRequestHandler = (error, _req, res, next) => {
+    if (res.headersSent) return next(error);
+    const status = [400, 413, 415].includes(error.status) ? error.status : 500;
+    const requestId = String(res.getHeader("x-request-id") ?? randomUUID());
+    if (status === 500) console.error("[HTTP] Internal error", requestId);
+    res.status(status).json({ error: "Não foi possível processar a solicitação.", requestId });
+  };
+  app.use(handleError);
 
   const preferredPort = parseInt(process.env.PORT || "3000");
   const host = process.env.NODE_ENV === "development" ? "127.0.0.1" : (process.env.HOST || "127.0.0.1");
@@ -85,4 +100,7 @@ async function startServer() {
   });
 }
 
-startServer().catch(console.error);
+void startServer().catch(() => {
+  console.error("Não foi possível iniciar o servidor.");
+  process.exitCode = 1;
+});
