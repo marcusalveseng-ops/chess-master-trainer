@@ -42,6 +42,7 @@ let gameMode = "bot",
   humanColor = "w",
   disposed = false,
   libraryGeneration = 0;
+let libraryImport = null;
 const engine = new StockfishCoach(
   result =>
     result.purpose === "bot" ? bot.receive(result) : showStockfish(result),
@@ -471,40 +472,52 @@ function readPgnFile(input) {
   return file;
 }
 
-function buildDBFromText(text) {
+async function buildDBFromText(text) {
+  libraryImport?.abort();
+  const job = new AbortController();
+  libraryImport = job;
+  $("cancel-library-import").hidden = false;
   try {
-    const parts = text
-      .replace(/\r\n?/g, "\n")
-      .split(/(?=^\[Event\s)/m)
-      .filter(s => s.trim());
-    if (parts.length > LIBRARY_MAX_GAMES) {
-      notice("Importe até 20.000 partidas de cada vez.");
-      return;
+    const parts = text.replace(/\r\n?/g, "\n").split(/(?=^\[Event\s)/m).filter(s => s.trim());
+    if (!parts.length || parts.length > LIBRARY_MAX_GAMES) {
+      notice("Importe entre 1 e 20.000 partidas de cada vez.");
+      return false;
     }
-    const next = parts.map(raw => {
-      if (new TextEncoder().encode(raw).length > PGN_MAX_BYTES) throw new Error("PGN too large");
-      const g = ChessFromPgn(raw);
-      const history = g.history();
+    const next = [];
+    const encode = new TextEncoder();
+    for (const [index, raw] of parts.entries()) {
+      if (index % 25 === 0) {
+        notice(`Importando partidas: ${index} de ${parts.length}.`);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (job.signal.aborted) return false;
+      }
+      if (encode.encode(raw).length > PGN_MAX_BYTES) throw new Error("PGN too large");
+      const game = ChessFromPgn(raw);
+      const history = game.history();
       if (history.length > PGN_MAX_PLIES) throw new Error("PGN too many moves");
-      const h = g.getHeaders();
-      return {
-        pgn: raw,
-        W: h.White || "?",
-        B: h.Black || "?",
-        R: h.Result || "*",
-        E: h.Event || "",
-        O: h.Opening || h.ECO || "",
-        ...classify(history),
-        D: h.Date || h.UTCDate || "",
-      };
-    });
+      const headers = game.getHeaders();
+      next.push({
+        pgn: raw, W: headers.White || "?", B: headers.Black || "?",
+        R: headers.Result || "*", E: headers.Event || "",
+        O: headers.Opening || headers.ECO || "", ...classify(history),
+        D: headers.Date || headers.UTCDate || "",
+      });
+    }
     libraryGeneration++;
     db = next;
     populateFilters();
-    notice();
     renderDB();
+    notice(`Biblioteca importada: ${db.length} partidas.`);
+    return true;
   } catch {
-    notice("A base contém PGN inválido. A biblioteca anterior foi preservada.");
+    notice("A base contém PGN inválido ou acima do limite. A biblioteca anterior foi preservada.");
+    return false;
+  } finally {
+    if (libraryImport === job) {
+      libraryImport = null;
+      $("cancel-library-import").hidden = true;
+      if (job.signal.aborted && !disposed) notice("Importação cancelada. A biblioteca anterior foi preservada.");
+    }
   }
 }
 let dbPage = 0;
@@ -561,7 +574,7 @@ $("dbfile").onchange = async e => {
   const f = readPgnFile(e.target);
   if (f)
     try {
-      buildDBFromText(await f.text());
+      await buildDBFromText(await f.text());
     } catch {
       notice("Falha ao ler a biblioteca.");
     }
@@ -1132,6 +1145,7 @@ const buttons = {
   "last-move": goEnd,
   "flip-board": flipBoard,
   "new-game": newGame,
+  "cancel-library-import": () => libraryImport?.abort(),
   "analyze-now": () => analyze(true),
   "open-db-file": () => $("dbfile").click(),
   "save-game": saveGame,
@@ -1147,6 +1161,7 @@ for (const id of ["opening-filter", "defense-filter"]) $(id).addEventListener("c
 engine.init(chessStockfishRuntime);
 window.addEventListener("pagehide", () => {
   disposed = true;
+  libraryImport?.abort();
   pausePreview();
   clearTimeout(timer);
   bot.cancel();
