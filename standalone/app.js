@@ -6,6 +6,7 @@ import { StockfishCoach } from "./engine.js";
 import pieces from "./pieces.json";
 import { classify, matchesGame, buildPlayerIndex, suggestPlayers } from "./library.js";
 import { BotOpponent } from "./bot.js";
+import { setupExercises } from "./exercises.js";
 
 const $ = id => document.getElementById(id);
 const PIECES = {
@@ -103,6 +104,7 @@ function cur() {
 function posAt(n) {
   return record(n);
 }
+let exercisesReady = false;
 function tab(i) {
   if (i !== 0) pausePreview();
   if (i !== 1) playerSuggestions.forEach(suggestions => suggestions.close());
@@ -117,21 +119,29 @@ function tab(i) {
     if (active) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
   });
-  for (let k = 0; k < 4; k++) {
-    $("p" + k).classList.toggle("on", k === i);
-    $("p" + k).hidden = k !== i;
+  document.querySelectorAll(".analysis-panel .panel").forEach((panel, k) => {
+    panel.classList.toggle("on", k === i);
+    panel.hidden = k !== i;
+  });
+  $("main-game").hidden = $("play-settings").hidden = i === 4;
+  $("exercise-area").hidden = i !== 4;
+  if (i === 4 && !exercisesReady) {
+    setupExercises(pieceImage, PIECES);
+    exercisesReady = true;
   }
   $("panel-title").textContent = [
     "Seu assistente de xadrez",
     "Partidas modelo",
     "Suas partidas salvas",
     "Importar e exportar",
+    "Exercícios de xadrez",
   ][i];
   $("panel-subtitle").textContent = [
     "Veja possibilidades antes de decidir.",
     "Aprenda com cada lance dos mestres.",
     "Guarde seus estudos e acompanhe seus jogos.",
     "Leve suas partidas para onde quiser.",
+    "Treine por fase e tipo de problema.",
   ][i];
 }
 function tabTo(i) {
@@ -883,7 +893,8 @@ document.querySelectorAll("[data-panel]").forEach(button =>
       $("panel-title").scrollIntoView({ block: "start" });
   })
 );
-document.querySelectorAll('[role="tab"]').forEach((button, index) =>
+const functionTabs = document.querySelectorAll('.tabs [role="tab"]');
+functionTabs.forEach((button, index) =>
   button.addEventListener("keydown", e => {
     if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return;
     e.preventDefault();
@@ -892,8 +903,8 @@ document.querySelectorAll('[role="tab"]').forEach((button, index) =>
       e.key === "Home"
         ? 0
         : e.key === "End"
-          ? 3
-          : (index + (["ArrowRight", "ArrowDown"].includes(e.key) ? 1 : 3)) % 4;
+          ? functionTabs.length - 1
+          : (index + (["ArrowRight", "ArrowDown"].includes(e.key) ? 1 : functionTabs.length - 1)) % functionTabs.length;
     tab(next);
     $("tab" + next).focus();
   })
@@ -919,7 +930,7 @@ $("autoA").onchange = () => {
   updateAnalysis();
 };
 document.addEventListener("keydown", e => {
-  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (!$("exercise-area").hidden || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if (e.key === "ArrowLeft") {
     e.preventDefault();
     goBack();

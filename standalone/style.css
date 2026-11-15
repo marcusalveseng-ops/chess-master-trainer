@@ -344,7 +344,8 @@ h1 {
   background: #ebecd7;
   transition: height 0.3s;
 }
-#board {
+#board,
+#exercise-board {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
@@ -355,6 +356,38 @@ h1 {
   box-shadow: 0 3px 16px #0003;
   user-select: none;
   container-type: inline-size;
+}
+#exercise-board {
+  width: 100%;
+}
+#exercise-area .section-label {
+  margin: 0 0 8px;
+}
+#exercise-area p {
+  margin: 10px 0;
+}
+#p4 select {
+  width: 100%;
+  margin-bottom: 9px;
+}
+#p4 a {
+  color: var(--green-light, #b7d98a);
+}
+.exercise-reading {
+  margin-top: 18px;
+}
+.exercise-reading p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.exercise-board-link {
+  display: none;
+}
+@media (max-width: 720px) {
+  .exercise-board-link {
+    display: inline-block;
+    margin-bottom: 8px;
+  }
 }
 .sq {
   position: relative;

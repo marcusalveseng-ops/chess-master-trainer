@@ -27,6 +27,9 @@
         <button data-panel="3">
           <span aria-hidden="true">⇅</span>Importar PGN
         </button>
+        <button data-panel="4">
+          <span aria-hidden="true">◎</span>Exercícios
+        </button>
       </nav>
       <div class="library-note">
         <span class="eyebrow">APRENDA COM OS MESTRES</span
@@ -50,7 +53,7 @@
           ><span class="status-dot"></span> Análise local</span
         >
       </header>
-      <div class="play-settings">
+      <div class="play-settings" id="play-settings">
         <label
           >Modo
           <select id="game-mode">
@@ -81,7 +84,7 @@
         ><span id="bot-status" role="status"></span>
       </div>
       <div class="workspace">
-        <section class="game-area" aria-label="Partida de xadrez">
+        <section class="game-area" id="main-game" aria-label="Partida de xadrez">
           <section id="preview-playback" class="preview-playback" aria-label="Reprodução da variante" hidden>
             <strong id="preview-label"></strong>
             <span id="preview-progress" role="status"></span>
@@ -176,7 +179,18 @@
             <div id="moves"></div>
           </section>
         </section>
-        <aside class="analysis-panel" aria-label="Análise e biblioteca">
+        <section class="game-area" id="exercise-area" aria-labelledby="exercise-title" hidden>
+          <div class="section-label">
+            <h2 id="exercise-title">Tabuleiro de exercícios</h2>
+            <span id="exercise-side" class="muted"></span>
+          </div>
+          <p id="exercise-goal"></p>
+          <div id="exercise-board" role="group" aria-label="Casas do tabuleiro de exercícios"></div>
+          <div id="exercise-promotion" class="row" role="group" aria-label="Escolher peça para promoção" hidden></div>
+          <p id="exercise-feedback" role="status"></p>
+          <p id="exercise-solution" aria-live="polite"></p>
+        </section>
+        <aside class="analysis-panel" aria-label="Ferramentas de xadrez">
           <div class="panel-heading">
             <span class="assistant-icon" aria-hidden="true">♞</span>
             <div>
@@ -225,6 +239,9 @@
               onclick="tab(3)"
             >
               <span class="tab-icon" aria-hidden="true">⇅</span><span>PGN</span>
+            </button>
+            <button id="tab4" role="tab" aria-selected="false" aria-controls="p4" tabindex="-1" onclick="tab(4)">
+              <span class="tab-icon" aria-hidden="true">◎</span><span>Exercícios</span>
             </button>
           </div>
           <section
@@ -413,6 +430,38 @@
               toda a partida, use a aba Salvas. Arquivos com várias partidas
               abrem na Biblioteca.
             </p>
+          </section>
+          <section class="panel" id="p4" role="tabpanel" tabindex="0" aria-labelledby="tab4" hidden>
+            <label class="field-label" for="exercise-stage">Fase do jogo</label>
+            <select id="exercise-stage"><option value="">Todas as fases</option></select>
+            <label class="field-label" for="exercise-theme">Tipo de problema</label>
+            <select id="exercise-theme"><option value="">Todos os tipos</option></select>
+            <label class="field-label" for="exercise-level">Dificuldade</label>
+            <select id="exercise-level">
+              <option value="">Todas</option>
+              <option value="intro">Até 1299</option>
+              <option value="intermediate">1300–1799</option>
+              <option value="advanced">1800 ou mais</option>
+              <option value="classic">Estudos clássicos</option>
+            </select>
+            <p id="exercise-count" class="help-text" role="status"></p>
+            <a class="exercise-board-link" href="#exercise-title">Ir para o tabuleiro ↑</a>
+            <div class="row">
+              <button class="pri" id="exercise-next">Próximo exercício</button>
+              <button id="exercise-reset">Recomeçar</button>
+            </div>
+            <div class="row">
+              <button id="exercise-hint">Dica</button>
+              <button id="exercise-reveal">Ver solução</button>
+            </div>
+            <p id="exercise-meta" class="help-text"></p>
+            <a id="exercise-source" target="_blank" rel="noopener"></a>
+            <details class="exercise-reading">
+              <summary>Fontes e leituras</summary>
+              <p>Problemas de partidas reais: <a href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener">base aberta do Lichess (CC0)</a>.</p>
+              <p><a href="https://www.gutenberg.org/ebooks/33870" target="_blank" rel="noopener"><i>Chess Fundamentals</i>, de Capablanca</a>: controle do centro e mates elementares. <a href="https://commons.wikimedia.org/wiki/File:Chess_fundamentals_(IA_chessfundamental00capa).pdf" target="_blank" rel="noopener">Edição digitalizada em PDF</a>.</p>
+              <p><a href="https://commons.wikimedia.org/wiki/File:Common_sense_in_chess_(IA_commonsenseinche00laskrich).pdf" target="_blank" rel="noopener"><i>Common Sense in Chess</i>, de Emanuel Lasker (PDF)</a>: leitura complementar sobre abertura, ataque e defesa.</p>
+            </details>
           </section>
         </aside>
       </div>

@@ -1,0 +1,7 @@
+# Repertório de exercícios
+
+A seção **Exercícios** do export independente inclui 138 posições: 135 da [base aberta de problemas do Lichess (CC0)](https://database.lichess.org/#puzzles) e três atividades de estudo baseadas em [Chess Fundamentals](https://www.gutenberg.org/ebooks/33870), de José Raúl Capablanca. As duas posições de mate são composições didáticas próprias inspiradas nos exemplos do capítulo I. A atividade de abertura usa a linha do exemplo 18, da seção sobre controle do centro. O painel também oferece o PDF da obra e [Common Sense in Chess](https://commons.wikimedia.org/wiki/File:Common_sense_in_chess_(IA_commonsenseinche00laskrich).pdf), de Emanuel Lasker, para leitura complementar.
+
+O recorte do Lichess tem 45 posições por fase (abertura, meio-jogo e final), com 15 em cada uma de três faixas de rating. A primeira jogada do CSV é do adversário e serve para montar a posição inicial. As demais formam a linha do exercício. O app verifica essa linha e reproduz as respostas previstas, sem chamar o motor e sem alterar a partida em andamento.
+
+Para renovar o recorte, use `node scripts/prepare-exercises.mjs` com Node que ofereça `createZstdDecompress` (validado no Node 26). O script amostra o início do arquivo do Lichess, valida os lances e grava `standalone/exercises.json`. A versão desta seleção veio do arquivo com ETag `"6ae6f0f4-12766d85"`. Como a base evolui, uma nova seleção pode mudar os exercícios disponíveis. O build normal usa o JSON versionado e funciona sem baixar a base.

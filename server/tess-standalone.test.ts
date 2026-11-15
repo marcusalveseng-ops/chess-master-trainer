@@ -2,7 +2,11 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { JSDOM, VirtualConsole } from 'jsdom';
+import { Chess } from 'chess.js';
 import { StockfishCoach, createInlineStockfish } from '../standalone/engine.js';
+import puzzles from '../standalone/exercises.json';
+import { classicalExercises } from '../standalone/exercises.js';
+import { exerciseStages, moveUci } from '../standalone/exercise-rules.js';
 let html: string;
 beforeAll(() => { execFileSync(process.execPath, ['scripts/build-tess.mjs']); html=readFileSync('dist/tess/index.html','utf8'); });
 function app(legacy?: object[], blockedWorkers=false) {
@@ -131,6 +135,61 @@ describe('single-file Tess export',()=>{
     const a=app();a.square('e2');a.square('e4');(a.document.querySelector('#pgnbox') as HTMLTextAreaElement).value='1. e4 e5 2. Bh6';
     a.dom.window.importBox();expect(a.document.querySelector('#notice')?.textContent).toContain('inválido');
     a.dom.window.exportPGN();expect((a.document.querySelector('#pgnbox') as HTMLTextAreaElement).value).toContain('1. e4');a.close();
+  });
+});
+describe('exercise repertoire',()=>{
+  it('contains 45 legal Lichess lines per phase, plus the classical studies',()=>{
+    expect(new Set(puzzles.map(puzzle=>puzzle.id)).size).toBe(135);
+    for(const phase of Object.keys(exerciseStages)){
+      const phasePuzzles=puzzles.filter(puzzle=>puzzle.stage===phase);
+      expect(phasePuzzles).toHaveLength(45);
+      expect(phasePuzzles.filter(puzzle=>puzzle.rating<1300)).toHaveLength(15);
+      expect(phasePuzzles.filter(puzzle=>puzzle.rating>=1800)).toHaveLength(15);
+    }
+    for(const puzzle of [...puzzles,...classicalExercises]){
+      const board=new Chess(puzzle.fen);
+      expect(puzzle.moves.length%2).toBe(1);
+      for(const move of puzzle.moves) moveUci(board,move);
+      if(puzzle.themes.includes('mate')) expect(board.isCheckmate(),puzzle.id).toBe(true);
+    }
+  });
+  it('filters the repertoire and trains a classical line without changing the main game',()=>{
+    const a=app();
+    try {
+      a.square('e2');a.square('e4');
+      const save=a.dom.window.localStorage.getItem('xsf_current');
+      const choose=(id:string,value:string)=>{
+        const el=a.document.querySelector('#exercise-'+id) as HTMLSelectElement;
+        el.value=value;el.dispatchEvent(new a.dom.window.Event('change'));
+      };
+      const square=(s:string)=>a.click(`#exercise-board [data-square="${s}"]`);
+      const content=(s:string)=>a.document.querySelector(s)?.textContent;
+      a.click('#tab4');
+      expect(content('#exercise-count')).toBe('1 de 138 exercícios');
+      expect(a.document.querySelector('#main-game')?.hasAttribute('hidden')).toBe(true);
+      choose('stage','endgame');choose('theme','development');
+      expect(content('#exercise-count')).toBe('0 exercícios');
+      expect(a.document.querySelector('#exercise-board')?.hasAttribute('hidden')).toBe(true);
+      choose('stage','opening');choose('level','classic');
+      expect(content('#exercise-count')).toBe('1 de 1 exercícios');
+      square('a2');square('a3');
+      expect(content('#exercise-feedback')).toContain('é legal, mas não segue');
+      expect(a.document.querySelector('#exercise-board [data-square="a2"] img')).toBeTruthy();
+      a.click('#exercise-hint');
+      expect(content('#exercise-feedback')).toContain('d2');
+      square('d4');
+      expect(content('#exercise-feedback')).toContain('Resposta: Nd7');
+      expect(a.document.querySelector('#exercise-board [data-square="d7"] img')).toBeTruthy();
+      square('f1');square('c4');
+      expect(content('#exercise-feedback')).toContain('Resolvido!');
+      a.click('#exercise-reset');a.click('#exercise-reveal');
+      expect(content('#exercise-solution')).toContain('d4 → Nd7 → Bc4');
+      expect(content('#exercise-feedback')).toContain('Solução revelada');
+      a.click('#tab0');
+      expect(a.dom.window.localStorage.getItem('xsf_current')).toBe(save);
+      expect(content('#status')).toContain('lance 1/1');
+      expect(a.errors).toEqual([]);
+    } finally {a.close();}
   });
 });
 describe('variant playback',()=>{
