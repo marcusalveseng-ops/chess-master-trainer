@@ -1,11 +1,13 @@
+import { PGN_MAX_BYTES, PGN_MAX_PLIES, LIBRARY_MAX_BYTES, LIBRARY_MAX_GAMES } from "../shared/pgn-limits.ts";
 import { Chess } from "chess.js";
 import { positionAt } from "../shared/chess-position.ts";
 import { explainCandidate } from "../shared/coach-explanation.ts";
 import { analyzePosition } from "../shared/chess-coach.ts";
 import { StockfishCoach } from "./engine.js";
 import pieces from "./pieces.json";
-import { classify, matchesGame } from "./library.js";
+import { classify, matchesGame, buildPlayerIndex, suggestPlayers } from "./library.js";
 import { BotOpponent } from "./bot.js";
+import { setupExercises } from "./exercises.js";
 
 const $ = id => document.getElementById(id);
 const PIECES = {
@@ -28,14 +30,19 @@ let headers = {
   Event: "Partida casual",
 };
 let preview = null,
+  previewTimer = null,
+  previewAnimations = [],
   analysisKey = "",
   timer = null,
   currentOrigin = "",
   db = [];
+let playerIndex = [];
+const playerSuggestions = [];
 let gameMode = "bot",
   humanColor = "w",
   disposed = false,
   libraryGeneration = 0;
+let libraryImport = null;
 const engine = new StockfishCoach(
   result =>
     result.purpose === "bot" ? bot.receive(result) : showStockfish(result),
@@ -99,37 +106,39 @@ function cur() {
 function posAt(n) {
   return record(n);
 }
+let exercisesReady = false;
+const functionTabs = document.querySelectorAll(".main-nav [role=tab]");
 function tab(i) {
-  document.querySelectorAll(".tabs button").forEach((b, k) => {
-    b.classList.toggle("on", k === i);
+  if (i !== 0) pausePreview();
+  if (i !== 1) playerSuggestions.forEach(suggestions => suggestions.close());
+  functionTabs.forEach((b, k) => {
     b.setAttribute("aria-selected", String(k === i));
     b.tabIndex = k === i ? 0 : -1;
   });
-  document.querySelectorAll(".main-nav button").forEach(b => {
-    const active = Number(b.dataset.panel) === i;
-    b.classList.toggle("active", active);
-    if (active) b.setAttribute("aria-current", "page");
-    else b.removeAttribute("aria-current");
+  document.querySelectorAll(".analysis-panel .panel").forEach((panel, k) => {
+    panel.classList.toggle("on", k === i);
+    panel.hidden = k !== i;
   });
-  for (let k = 0; k < 4; k++) {
-    $("p" + k).classList.toggle("on", k === i);
-    $("p" + k).hidden = k !== i;
+  $("main-game").hidden = $("play-settings").hidden = i === 4;
+  $("exercise-area").hidden = i !== 4;
+  if (i === 4 && !exercisesReady) {
+    setupExercises(pieceImage, PIECES);
+    exercisesReady = true;
   }
   $("panel-title").textContent = [
     "Seu assistente de xadrez",
-    "Biblioteca de partidas",
+    "Partidas modelo",
     "Suas partidas salvas",
     "Importar e exportar",
+    "Exercícios de xadrez",
   ][i];
   $("panel-subtitle").textContent = [
     "Veja possibilidades antes de decidir.",
     "Aprenda com cada lance dos mestres.",
     "Guarde seus estudos e acompanhe seus jogos.",
     "Leve suas partidas para onde quiser.",
+    "Treine por fase e tipo de problema.",
   ][i];
-}
-function tabTo(i) {
-  document.querySelectorAll(".tabs button")[i].click();
 }
 function pieceImage(piece) {
   const img = document.createElement("img");
@@ -239,6 +248,7 @@ function render() {
       ? "Explorando variante " + preview.ply + "/" + preview.total
       : "lance " + ply + "/" + moves.length);
   $("return-main").hidden = !preview;
+  updatePreviewControls();
   $("train-position").disabled = !!preview;
   renderPlayers(c);
   const shownPly = preview ? preview.ply : ply,
@@ -340,6 +350,7 @@ function playMove(to, promotion = "q") {
   }
 }
 function go(n) {
+  pausePreview();
   bot.cancel();
   if (preview) preview.ply = Math.max(0, Math.min(preview.total, n));
   else ply = Math.max(0, Math.min(moves.length, n));
@@ -356,6 +367,7 @@ function goEnd() {
   go(preview ? preview.total : moves.length);
 }
 function flipBoard() {
+  pausePreview();
   flipped = !flipped;
   render();
 }
@@ -369,6 +381,7 @@ function newGame() {
     return;
   bot.cancel();
   engine.stop();
+  pausePreview();
   analysisKey = "";
   gameMode = "bot";
   humanColor = $("human-color").value;
@@ -402,14 +415,19 @@ function download(text, name) {
 }
 function exportPGN() {
   $("pgnbox").value = buildPGN();
-  tabTo(3);
+  tab(3);
 }
 function downloadPGN() {
   download(buildPGN(), "partida.pgn");
 }
 function loadPGN(text) {
+  if (new TextEncoder().encode(text).length > PGN_MAX_BYTES) {
+    notice("PGN excede o limite de 60 KB por partida.");
+    return false;
+  }
   try {
     const g = ChessFromPgn(text);
+    pausePreview();
     bot.cancel();
     gameMode = "study";
     moves = g.history();
@@ -427,49 +445,83 @@ function loadPGN(text) {
   }
 }
 function importBox() {
-  if (loadPGN($("pgnbox").value)) tabTo(0);
+  if (loadPGN($("pgnbox").value)) tab(0);
 }
-$("onefile").onchange = async e => {
-  const f = e.target.files[0];
-  if (!f) return;
+let fileSelection = 0;
+async function importPgnFile(input, libraryOnly) {
+  const file = readPgnFile(input);
+  if (!file) return;
+  const selection = ++fileSelection;
+  libraryImport?.abort();
+  input.value = "";
   try {
-    const t = await f.text();
-    if ((t.match(/^\[Event\s/gm) || []).length > 1) {
-      buildDBFromText(t);
-      tabTo(1);
-    } else if (loadPGN(t)) tabTo(0);
+    const text = await file.text();
+    if (disposed || selection !== fileSelection) return;
+    if (libraryOnly || (text.match(/^\[Event\s/gm) || []).length > 1) {
+      if (await buildDBFromText(text)) tab(1);
+    } else if (loadPGN(text)) tab(0);
   } catch {
-    notice("Não foi possível ler o arquivo.");
+    if (!disposed && selection === fileSelection) notice("Não foi possível ler o arquivo.");
   }
-  e.target.value = "";
-};
-function buildDBFromText(text) {
+}
+$("onefile").onchange = event => void importPgnFile(event.currentTarget, false);
+function readPgnFile(input) {
+  const file = input.files[0];
+  if (!file) return null;
+  if (!/\.pgn$/i.test(file.name) || file.size > LIBRARY_MAX_BYTES) {
+    notice("Selecione um arquivo .pgn de até 16 MB.");
+    input.value = "";
+    return null;
+  }
+  return file;
+}
+
+async function buildDBFromText(text) {
+  libraryImport?.abort();
+  const job = new AbortController();
+  libraryImport = job;
+  $("cancel-library-import").hidden = false;
   try {
-    const parts = text
-      .replace(/\r\n?/g, "\n")
-      .split(/(?=^\[Event\s)/m)
-      .filter(s => s.trim());
-    const next = parts.map(raw => {
-      const g = ChessFromPgn(raw);
-      const h = g.getHeaders();
-      return {
-        pgn: raw,
-        W: h.White || "?",
-        B: h.Black || "?",
-        R: h.Result || "*",
-        E: h.Event || "",
-        O: h.Opening || h.ECO || "",
-        ...classify(g.history()),
-        D: h.Date || h.UTCDate || "",
-      };
-    });
+    const parts = text.replace(/\r\n?/g, "\n").split(/(?=^\[Event\s)/m).filter(s => s.trim());
+    if (!parts.length || parts.length > LIBRARY_MAX_GAMES) {
+      notice("Importe entre 1 e 20.000 partidas de cada vez.");
+      return false;
+    }
+    const next = [];
+    const encode = new TextEncoder();
+    for (const [index, raw] of parts.entries()) {
+      if (index % 25 === 0) {
+        notice(`Importando partidas: ${index} de ${parts.length}.`);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (job.signal.aborted) return false;
+      }
+      if (encode.encode(raw).length > PGN_MAX_BYTES) throw new Error("PGN too large");
+      const game = ChessFromPgn(raw);
+      const history = game.history();
+      if (history.length > PGN_MAX_PLIES) throw new Error("PGN too many moves");
+      const headers = game.getHeaders();
+      next.push({
+        pgn: raw, W: headers.White || "?", B: headers.Black || "?",
+        R: headers.Result || "*", E: headers.Event || "",
+        O: headers.Opening || headers.ECO || "", ...classify(history),
+        D: headers.Date || headers.UTCDate || "",
+      });
+    }
     libraryGeneration++;
     db = next;
     populateFilters();
-    notice();
     renderDB();
+    notice(`Biblioteca importada: ${db.length} partidas.`);
+    return true;
   } catch {
-    notice("A base contém PGN inválido. A biblioteca anterior foi preservada.");
+    notice("A base contém PGN inválido ou acima do limite. A biblioteca anterior foi preservada.");
+    return false;
+  } finally {
+    if (libraryImport === job) {
+      libraryImport = null;
+      $("cancel-library-import").hidden = true;
+      if (job.signal.aborted && !disposed) notice("Importação cancelada. A biblioteca anterior foi preservada.");
+    }
   }
 }
 let dbPage = 0;
@@ -517,21 +569,12 @@ function renderDB(reset = true) {
       .join(" · ");
     d.appendChild(meta);
     d.onclick = () => {
-      if (loadPGN(g.pgn)) tabTo(0);
+      if (loadPGN(g.pgn)) tab(0);
     };
     $("dblist").appendChild(d);
   });
 }
-$("dbfile").onchange = async e => {
-  const f = e.target.files[0];
-  if (f)
-    try {
-      buildDBFromText(await f.text());
-    } catch {
-      notice("Falha ao ler a biblioteca.");
-    }
-  e.target.value = "";
-};
+$("dbfile").onchange = event => void importPgnFile(event.currentTarget, true);
 function getSaved() {
   try {
     const saved = JSON.parse(localStorage.getItem("xsf_saved") || "[]");
@@ -565,7 +608,7 @@ function saveGame() {
   const a = getSaved();
   a.unshift({ name, date: new Date().toISOString(), pgn: record().pgn() });
   if (setSaved(a)) {
-    tabTo(2);
+    tab(2);
     notice("Partida completa salva neste navegador.");
   }
 }
@@ -593,7 +636,7 @@ function renderSaved() {
     const load = document.createElement("button");
     load.textContent = "Carregar";
     load.onclick = () => {
-      if (loadPGN(g.pgn)) tabTo(0);
+      if (loadPGN(g.pgn)) tab(0);
     };
     const del = document.createElement("button");
     del.textContent = "Excluir";
@@ -653,7 +696,10 @@ function updateAnalysis(force = false) {
       });
       showCandidates(
         g.fen(),
-        result.candidates,
+        result.candidates.map(candidate => ({
+          ...candidate,
+          risks: explainCandidate(g.fen(), candidate.line, candidate.score).risks,
+        })),
         result.depth,
         "Assistente local"
       );
@@ -762,21 +808,98 @@ function showCandidates(fen, candidates, depth, origin) {
     article.appendChild(details);
     const b = document.createElement("button");
     b.textContent = "Explorar variante " + c.san;
-    b.onclick = () => {
-      const branch = new Chess(fen);
-      c.line.forEach(san => branch.move(san));
-      preview = { pgn: branch.pgn(), ply: 0, total: c.line.length };
-      clearTimeout(timer);
-      bot.cancel();
-      engine.stop();
-      selected = null;
-      render();
-    };
+    b.onclick = () => openPreview(fen, c, index);
     article.appendChild(b);
+    if (index < 2) {
+      const animate = document.createElement("button");
+      animate.className = "animate-variant";
+      animate.textContent = "▶ Animar variante " + c.san;
+      animate.onclick = () => {
+        openPreview(fen, c, index);
+        playPreview();
+        $("preview-playback").scrollIntoView?.({ block: "nearest" });
+      };
+      article.appendChild(animate);
+    }
     $("coach").appendChild(article);
   });
 }
+function openPreview(fen, candidate, index) {
+  pausePreview();
+  const branch = new Chess(fen);
+  candidate.line.forEach(san => branch.move(san));
+  preview = {
+    pgn: branch.pgn(), ply: 0, total: candidate.line.length,
+    label: "Variante " + (index + 1) + ": " + candidate.san,
+    canAnimate: index < 2,
+  };
+  clearTimeout(timer);
+  bot.cancel();
+  engine.stop();
+  selected = null;
+  render();
+}
+function updatePreviewControls() {
+  $("preview-playback").hidden = !preview?.canAnimate;
+  if (!preview?.canAnimate) return;
+  const playing = previewTimer !== null;
+  $("preview-label").textContent = preview.label;
+  $("preview-progress").textContent =
+    preview.ply + "/" + preview.total + " meios-lances · " +
+    (playing ? "Reproduzindo" : preview.ply === preview.total ? "Concluída" : "Pausada");
+  $("preview-toggle").textContent = playing ? "⏸ Pausar" :
+    preview.ply === preview.total ? "↻ Repetir" : "▶ Reproduzir";
+}
+function pausePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = null;
+  previewAnimations.forEach(animation => animation.cancel());
+  previewAnimations = [];
+  updatePreviewControls();
+}
+function animatePreviewMove() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  const last = cur().history({ verbose: true }).at(-1);
+  if (!last) return;
+  const paths = [[last.from, last.to]];
+  if (last.flags.includes("k")) paths.push(["h" + last.from[1], "f" + last.from[1]]);
+  if (last.flags.includes("q")) paths.push(["a" + last.from[1], "d" + last.from[1]]);
+  const size = $("board").getBoundingClientRect().width / 8;
+  const direction = flipped ? -1 : 1;
+  previewAnimations = paths.flatMap(([from, to]) => {
+    const image = $("board").querySelector(`[aria-label="${to}"] img`);
+    if (!image?.animate) return [];
+    image.style.zIndex = "3";
+    const x = (from.charCodeAt(0) - to.charCodeAt(0)) * size * direction;
+    const y = (Number(to[1]) - Number(from[1])) * size * direction;
+    return [image.animate([
+      { transform: `translate(${x}px, ${y}px)` }, { transform: "translate(0, 0)" },
+    ], { duration: 350, easing: "ease-in-out" })];
+  });
+}
+function playPreview() {
+  if (!preview?.canAnimate || disposed) return;
+  pausePreview();
+  if (preview.ply === preview.total) {
+    preview.ply = 0;
+    render();
+  }
+  const advance = () => {
+    previewTimer = null;
+    if (!preview || disposed) return;
+    preview.ply++;
+    render();
+    animatePreviewMove();
+    if (preview.ply < preview.total) previewTimer = setTimeout(advance, 1100);
+    updatePreviewControls();
+  };
+  previewTimer = setTimeout(advance, 1100);
+  updatePreviewControls();
+}
+$("preview-toggle").onclick = () => previewTimer !== null ? pausePreview() : playPreview();
+$("preview-restart").onclick = () => go(0);
 $("return-main").onclick = () => {
+  pausePreview();
   preview = null;
   selected = null;
   render();
@@ -785,28 +908,33 @@ $("depthSel").onchange = () => updateAnalysis(true);
 function analyze() {
   updateAnalysis(true);
 }
-document.querySelectorAll("[data-panel]").forEach(button =>
+const compactNav = window.matchMedia?.("(max-width: 900px)");
+const syncNavOrientation = () =>
+  document.querySelector(".main-nav").setAttribute("aria-orientation", compactNav?.matches ? "horizontal" : "vertical");
+syncNavOrientation();
+compactNav?.addEventListener?.("change", syncNavOrientation);
+functionTabs.forEach((button, index) => {
   button.addEventListener("click", () => {
-    tab(Number(button.dataset.panel));
-    if (window.matchMedia?.("(max-width: 720px)").matches)
-      $("panel-title").scrollIntoView({ block: "start" });
-  })
-);
-document.querySelectorAll('[role="tab"]').forEach((button, index) =>
+    tab(index);
+    if (window.matchMedia?.("(max-width: 720px)").matches) {
+      $(index === 0 ? "main-game" : index === 4 ? "exercise-area" : "panel-title").scrollIntoView({ block: "start" });
+    }
+  });
   button.addEventListener("keydown", e => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    const [previous, following] = compactNav?.matches ? ["ArrowLeft", "ArrowRight"] : ["ArrowUp", "ArrowDown"];
+    if (![previous, following, "Home", "End"].includes(e.key)) return;
     e.preventDefault();
     e.stopPropagation();
     const next =
       e.key === "Home"
         ? 0
         : e.key === "End"
-          ? 3
-          : (index + (e.key === "ArrowRight" ? 1 : 3)) % 4;
+          ? functionTabs.length - 1
+          : (index + (e.key === following ? 1 : functionTabs.length - 1)) % functionTabs.length;
     tab(next);
     $("tab" + next).focus();
-  })
-);
+  });
+});
 Object.assign(window, {
   go,
   goBack,
@@ -828,7 +956,7 @@ $("autoA").onchange = () => {
   updateAnalysis();
 };
 document.addEventListener("keydown", e => {
-  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (!$("exercise-area").hidden || e.target.matches?.('[role="tab"], input, textarea, select')) return;
   if (e.key === "ArrowLeft") {
     e.preventDefault();
     goBack();
@@ -857,6 +985,7 @@ try {
   /* Empty or invalid old autosave; explicit saved games remain unchanged. */
 }
 $("game-mode").onchange = () => {
+  pausePreview();
   bot.cancel();
   engine.stop();
   gameMode = $("game-mode").value;
@@ -864,6 +993,7 @@ $("game-mode").onchange = () => {
   render();
 };
 $("human-color").onchange = () => {
+  pausePreview();
   bot.cancel();
   engine.stop();
   humanColor = $("human-color").value;
@@ -877,7 +1007,70 @@ $("bot-level").onchange = () => {
 };
 render();
 renderSaved();
+for (const id of ["player1", "player2"]) {
+  const input = $(id), list = $(id + "-suggestions");
+  let matches = [], active = -1;
+  const close = () => {
+    list.hidden = true;
+    active = -1;
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+  };
+  const choose = index => {
+    input.value = matches[index].name;
+    input.focus();
+    close();
+    renderDB();
+  };
+  const highlight = () => {
+    [...list.children].forEach((option, index) =>
+      option.setAttribute("aria-selected", String(index === active))
+    );
+    if (active >= 0) input.setAttribute("aria-activedescendant", list.children[active].id);
+    else input.removeAttribute("aria-activedescendant");
+    if (active >= 0) list.children[active].scrollIntoView?.({ block: "nearest" });
+  };
+  const refresh = () => {
+    close();
+    list.replaceChildren();
+    if (document.activeElement !== input) return;
+    matches = suggestPlayers(playerIndex, input.value);
+    matches.forEach((player, index) => {
+      const option = document.createElement("li");
+      option.id = id + "-option-" + index;
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", "false");
+      option.textContent = player.name;
+      option.onclick = () => choose(index);
+      list.appendChild(option);
+    });
+    list.hidden = !matches.length;
+    input.setAttribute("aria-expanded", String(matches.length > 0));
+  };
+  list.onpointerdown = e => e.preventDefault();
+  input.addEventListener("input", refresh);
+  input.addEventListener("focus", refresh);
+  input.addEventListener("blur", close);
+  input.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      close();
+      e.preventDefault();
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (list.hidden) refresh();
+      if (!matches.length) return;
+      e.preventDefault();
+      active = (active + (e.key === "ArrowDown" ? 1 : active < 0 ? 0 : -1) + matches.length) % matches.length;
+      highlight();
+    } else if (e.key === "Enter" && !list.hidden && active >= 0) {
+      e.preventDefault();
+      choose(active);
+    }
+  });
+  playerSuggestions.push({ refresh, close });
+}
 function populateFilters() {
+  playerIndex = buildPlayerIndex(db);
+  playerSuggestions.forEach(suggestions => suggestions.refresh());
   for (const [id, key, label] of [
     ["opening-filter", "opening", "Todas as aberturas"],
     ["defense-filter", "defense", "Todas as defesas"],
@@ -919,6 +1112,7 @@ $("db-next").onclick = () => {
   renderDB(false);
 };
 $("clear-filters").onclick = () => {
+  playerSuggestions.forEach(suggestions => suggestions.close());
   for (const id of [
     "q",
     "player1",
@@ -939,10 +1133,35 @@ $("train-position").onclick = () => {
   render();
   notice("Treino iniciado a partir da posição selecionada.");
 };
-engine.init();
+const buttons = {
+  "first-move": () => go(0),
+  "previous-move": goBack,
+  "next-move": goNext,
+  "last-move": goEnd,
+  "flip-board": flipBoard,
+  "new-game": newGame,
+  "cancel-library-import": () => libraryImport?.abort(),
+  "analyze-now": () => analyze(true),
+  "open-db-file": () => $("dbfile").click(),
+  "save-game": saveGame,
+  "download-saved": downloadSaved,
+  "import-pgn": importBox,
+  "open-pgn-file": () => $("onefile").click(),
+  "export-pgn": exportPGN,
+  "download-pgn": downloadPGN,
+};
+for (const [id, action] of Object.entries(buttons)) $(id).addEventListener("click", action);
+for (const id of ["q", "player1", "player2"]) $(id).addEventListener("input", () => renderDB());
+for (const id of ["opening-filter", "defense-filter"]) $(id).addEventListener("change", () => renderDB());
+engine.init(chessStockfishRuntime);
 window.addEventListener("pagehide", () => {
   disposed = true;
+  libraryImport?.abort();
+  pausePreview();
   clearTimeout(timer);
   bot.cancel();
   engine.dispose();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pausePreview();
 });

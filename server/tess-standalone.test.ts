@@ -1,13 +1,22 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { JSDOM, VirtualConsole } from 'jsdom';
+import { Chess } from 'chess.js';
 import { StockfishCoach, createInlineStockfish } from '../standalone/engine.js';
+import puzzles from '../standalone/exercises.json';
+import { classicalAuthors, classicalExercises } from '../standalone/exercise-classics.js';
+import { exerciseStages, moveUci } from '../standalone/exercise-rules.js';
 let html: string;
 beforeAll(() => { execFileSync(process.execPath, ['scripts/build-tess.mjs']); html=readFileSync('dist/tess/index.html','utf8'); });
 function app(legacy?: object[], blockedWorkers=false) {
   const errors: Error[]=[];const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e));
-  const dom=new JSDOM(html,{url:'https://xadrez-stockfish.tess.page',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
+  const htmlForTest = html.replace(
+    "function chessStockfishRuntime(postMessage, close, setTimeout, clearTimeout) {",
+    "function chessStockfishRuntime(postMessage, close, setTimeout, clearTimeout) { throw new Error('Test: engine unavailable');"
+  );
+  const dom=new JSDOM(htmlForTest,{url:'https://xadrez-stockfish.tess.page',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
     Object.assign(w,{Response,DecompressionStream,TextDecoder,TextEncoder});
     w.fetch=vi.fn().mockRejectedValue(new Error('offline'));
     w.Worker=class { constructor(){if(blockedWorkers)throw new w.DOMException('Blocked by hosting CSP','SecurityError');} terminate(){} postMessage(){} } as any;
@@ -21,6 +30,14 @@ function app(legacy?: object[], blockedWorkers=false) {
   return {dom,document,errors,click,square,close:()=>{dom.window.dispatchEvent(new dom.window.Event('pagehide'));dom.window.close();}};
 }
 describe('single-file Tess export',()=>{
+  it('authorizes only its exact script with CSP and avoids inline event handlers', () => {
+    const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+    expect(script).toBeTruthy();
+    const hash = createHash('sha256').update(script!).digest('base64');
+    const htmlWithoutScript = html.replace(script!, '');
+    expect(htmlWithoutScript).toContain(`script-src 'sha256-${hash}'`);
+    expect(htmlWithoutScript).not.toMatch(/unsafe-eval|\son(?:click|input|change)=/i);
+  });
   it('new game replies with a legal bot move even offline',async()=>{
     const a=app();try{a.dom.window.newGame();a.square('e2');a.square('e4');
     await new Promise(r=>setTimeout(r,1300));
@@ -45,11 +62,57 @@ describe('single-file Tess export',()=>{
     }finally{a.close();}
   });
   it('switches navigation panels and exposes coordinates',()=>{
-    const a=app();a.click('.main-nav [data-panel="1"]');expect(a.document.querySelector('#p1')?.hasAttribute('hidden')).toBe(false);
+    const a=app();a.click('.main-nav #tab1');expect(a.document.querySelector('#p1')?.hasAttribute('hidden')).toBe(false);
     expect(a.document.querySelector('#tab1')?.getAttribute('aria-selected')).toBe('true');
     expect(a.document.querySelectorAll('#board .coord')).toHaveLength(16);a.close();
   });
-  it('produces alternatives when hosting blocks Workers and the CDN is offline',async()=>{
+  it('switches function sidebars with the keyboard and retains their scroll positions',()=>{
+    const a=app();try {
+      a.click('#tab1');
+      const library=a.document.querySelector('#p1') as HTMLElement;
+      library.scrollTop=120;
+      a.document.querySelector('#tab1')!.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+      expect(a.document.querySelector('#p2')?.hasAttribute('hidden')).toBe(false);
+      expect(a.document.activeElement?.id).toBe('tab2');
+      expect(a.document.querySelector('#panel-title')?.textContent).toBe('Suas partidas salvas');
+      a.click('#tab1');
+      expect(library.scrollTop).toBe(120);
+      expect(a.document.querySelector('#panel-title')?.textContent).toBe('Partidas modelo');
+      expect(a.document.querySelectorAll('[role="tablist"]')).toHaveLength(1);
+      expect(a.document.querySelector('.sidebar [role="tablist"]')?.getAttribute('aria-orientation')).toBe('vertical');
+      expect(a.document.querySelectorAll('.sidebar [role="tab"]')).toHaveLength(5);
+    }finally{a.close();}
+  });
+  it('selects suggested player names by keyboard and click while combining model-game filters',async()=>{
+    const a=app();try {
+      await a.dom.window.libraryReady;
+      a.click('#tab1');
+      const player1=a.document.querySelector('#player1') as HTMLInputElement;
+      const player2=a.document.querySelector('#player2') as HTMLInputElement;
+      player1.focus();player1.value='carl';player1.dispatchEvent(new a.dom.window.Event('input',{bubbles:true}));
+      expect(player1.getAttribute('aria-expanded')).toBe('true');
+      expect(a.document.querySelectorAll('#player1-suggestions [role="option"]').length).toBeLessThanOrEqual(8);
+      player1.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+      expect(player1.getAttribute('aria-activedescendant')).toBe('player1-option-0');
+      player1.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+      expect(player1.value).toMatch(/Carlsen/i);
+      expect(player1.getAttribute('aria-expanded')).toBe('false');
+      player2.focus();player2.value='naka';player2.dispatchEvent(new a.dom.window.Event('input',{bubbles:true}));
+      a.click('#player2-suggestions [role="option"]');
+      expect(player2.value).toMatch(/Nakamura/i);
+      const defense=a.document.querySelector('#defense-filter') as HTMLSelectElement;
+      defense.value='Caro-Kann';defense.dispatchEvent(new a.dom.window.Event('change',{bubbles:true}));
+      expect(a.document.querySelector('#dbcount')?.textContent).toBe('7 de 17831 partidas');
+      player2.value='naka';player2.dispatchEvent(new a.dom.window.Event('input',{bubbles:true}));
+      player2.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+      expect(player2.getAttribute('aria-expanded')).toBe('false');
+      a.click('#clear-filters');
+      expect(player1.value).toBe('');expect(player2.value).toBe('');
+      expect(a.document.querySelector('#dbcount')?.textContent).toBe('17831 de 17831 partidas');
+      expect(a.errors).toEqual([]);
+    }finally{a.close();}
+  });
+  it('produces alternatives when the bundled engine is unavailable',async()=>{
     const a=app(undefined,true);
     try {
       await new Promise(resolve=>setTimeout(resolve,650));
@@ -57,6 +120,35 @@ describe('single-file Tess export',()=>{
       expect(a.document.querySelector('#depthtxt')?.textContent).toContain('Assistente local');
       expect(a.errors).toEqual([]);
     } finally { a.close(); }
+  });
+  it('keeps the existing library when import is cancelled', async () => {
+    const a = app();
+    try {
+      await a.dom.window.libraryReady;
+      const input = a.document.querySelector('#dbfile') as HTMLInputElement;
+      const button = a.document.querySelector('#cancel-library-import') as HTMLButtonElement;
+      const pgn = Array.from({length: 50}, (_, i) => '[Event "' + i + '"]\n\n1. e4 e5 *').join('\n\n');
+      Object.defineProperty(input, 'files', {
+        value: [{ name: 'test.pgn', size: pgn.length, text: async () => pgn }],
+      });
+      const started = new Promise<void>(resolve => {
+        const observer = new a.dom.window.MutationObserver(() => {
+          if (button.hidden) return;
+          observer.disconnect();
+          button.click();
+          resolve();
+        });
+        observer.observe(button, { attributes: true, attributeFilter: ['hidden'] });
+      });
+      input.dispatchEvent(new a.dom.window.Event('change'));
+      await started;
+      await new Promise(resolve => setTimeout(resolve, 20));
+      expect(button.hidden).toBe(true);
+      expect(a.document.querySelector('#notice')?.textContent).toContain('cancelada');
+      expect(a.document.querySelector('#dbcount')?.textContent).toBe('17831 de 17831 partidas');
+    } finally {
+      a.close();
+    }
   });
   it('renders the board and expanded library without script errors',async()=>{
     const a=app();await a.dom.window.libraryReady;expect(a.errors).toEqual([]);expect(a.document.querySelectorAll('#board button')).toHaveLength(64);
@@ -89,6 +181,145 @@ describe('single-file Tess export',()=>{
     a.dom.window.exportPGN();expect((a.document.querySelector('#pgnbox') as HTMLTextAreaElement).value).toContain('1. e4');a.close();
   });
 });
+describe('exercise repertoire',()=>{
+  it('contains 45 legal Lichess lines per phase, plus the classical studies',()=>{
+    expect(new Set(puzzles.map(puzzle=>puzzle.id)).size).toBe(135);
+    for(const phase of Object.keys(exerciseStages)){
+      const phasePuzzles=puzzles.filter(puzzle=>puzzle.stage===phase);
+      expect(phasePuzzles).toHaveLength(45);
+      expect(phasePuzzles.filter(puzzle=>puzzle.rating<1300)).toHaveLength(15);
+      expect(phasePuzzles.filter(puzzle=>puzzle.rating>=1800)).toHaveLength(15);
+    }
+    expect(classicalExercises).toHaveLength(18);
+    for(const author of Object.keys(classicalAuthors)){
+      expect(classicalExercises.filter(puzzle=>puzzle.author===author).length).toBeGreaterThanOrEqual(3);
+    }
+    for(const puzzle of [...puzzles,...classicalExercises]){
+      const board=new Chess(puzzle.fen);
+      expect(puzzle.moves.length%2).toBe(1);
+      for(const move of puzzle.moves) moveUci(board,move);
+      if(puzzle.themes.includes('mate')) expect(board.isCheckmate(),puzzle.id).toBe(true);
+    }
+  });
+  it('filters the repertoire and trains a classical line without changing the main game',()=>{
+    const a=app();
+    try {
+      a.square('e2');a.square('e4');
+      const save=a.dom.window.localStorage.getItem('xsf_current');
+      const choose=(id:string,value:string)=>{
+        const el=a.document.querySelector('#exercise-'+id) as HTMLSelectElement;
+        el.value=value;el.dispatchEvent(new a.dom.window.Event('change'));
+      };
+      const square=(s:string)=>a.click(`#exercise-board [data-square="${s}"]`);
+      const content=(s:string)=>a.document.querySelector(s)?.textContent;
+      a.click('#tab4');
+      expect(content('#exercise-count')).toBe('1 de 153 exercícios');
+      expect(a.document.querySelector('#main-game')?.hasAttribute('hidden')).toBe(true);
+      choose('stage','endgame');choose('theme','development');
+      expect(content('#exercise-count')).toBe('0 exercícios');
+      expect(a.document.querySelector('#exercise-board')?.hasAttribute('hidden')).toBe(true);
+      choose('theme','draw');choose('origin','reti');
+      expect(content('#exercise-count')).toBe('1 de 3 exercícios');
+      expect(content('#exercise-source')).toContain('Richard Réti');
+      expect((a.document.querySelector('#exercise-level') as HTMLSelectElement).disabled).toBe(true);
+      a.click('#exercise-next');
+      expect(content('#exercise-source')).toContain('1.2');
+      choose('stage','opening');choose('theme','development');choose('origin','capablanca');
+      expect(content('#exercise-count')).toBe('1 de 1 exercícios');
+      square('a2');square('a3');
+      expect(content('#exercise-feedback')).toContain('é legal, mas não segue');
+      expect(a.document.querySelector('#exercise-board [data-square="a2"] img')).toBeTruthy();
+      a.click('#exercise-hint');
+      expect(content('#exercise-feedback')).toContain('d2');
+      square('d4');
+      expect(content('#exercise-feedback')).toContain('Resposta: Nd7');
+      expect(a.document.querySelector('#exercise-board [data-square="d7"] img')).toBeTruthy();
+      square('f1');square('c4');
+      expect(content('#exercise-feedback')).toContain('Resolvido!');
+      a.click('#exercise-reset');a.click('#exercise-reveal');
+      expect(content('#exercise-solution')).toContain('d4 → Nd7 → Bc4');
+      expect(content('#exercise-feedback')).toContain('Solução revelada');
+      a.click('#tab0');
+      expect(a.dom.window.localStorage.getItem('xsf_current')).toBe(save);
+      expect(content('#status')).toContain('lance 1/1');
+      expect(a.errors).toEqual([]);
+    } finally {a.close();}
+  });
+});
+describe('variant playback',()=>{
+  async function readyVariants() {
+    const a=app();
+    (a.document.querySelector('#pgnbox') as HTMLTextAreaElement).value=
+      '[SetUp "1"]\n[FEN "4k3/4p3/8/8/8/8/4P3/4K3 w - - 0 1"]\n\n*';
+    a.dom.window.importBox();
+    await vi.waitFor(()=>expect(a.document.querySelectorAll('.animate-variant')).toHaveLength(2),{timeout:3000});
+    return a;
+  }
+  it('animates the top two lines on demand, pauses, seeks, repeats and preserves the main game',async()=>{
+    const a=await readyVariants();
+    try {
+      const saved=a.dom.window.localStorage.getItem('xsf_current');
+      expect(a.document.querySelector('#preview-playback')?.hasAttribute('hidden')).toBe(true);
+      vi.useFakeTimers();
+      a.click('.animate-variant');
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      expect(a.document.querySelector('#preview-toggle')?.textContent).toContain('Pausar');
+      vi.advanceTimersByTime(1100);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('1/2');
+      a.click('#preview-toggle');
+      const pausedBoard=a.document.querySelector('#board')!.innerHTML;
+      vi.advanceTimersByTime(3300);
+      expect(a.document.querySelector('#board')!.innerHTML).toBe(pausedBoard);
+      a.click('#next-move');
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('2/2');
+      expect(a.document.querySelector('#preview-toggle')?.textContent).toContain('Repetir');
+      a.click('#preview-toggle');
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      vi.advanceTimersByTime(1100);
+      a.click('#previous-move');
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      expect(a.document.querySelector('#preview-toggle')?.textContent).toContain('Reproduzir');
+      a.click('#preview-toggle');
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('Concluída');
+      a.click('#preview-restart');
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      a.click('#return-main');
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#preview-playback')?.hasAttribute('hidden')).toBe(true);
+      expect(a.document.querySelector('#status')?.textContent).toContain('lance 0/0');
+      expect(a.dom.window.localStorage.getItem('xsf_current')).toBe(saved);
+      expect(a.errors).toEqual([]);
+    } finally {a.close();vi.useRealTimers();}
+  });
+  it('cancels playback when switching lines, starting a game or leaving the page',async()=>{
+    const a=await readyVariants();
+    try {
+      vi.useFakeTimers();
+      a.click('.animate-variant');
+      vi.advanceTimersByTime(550);
+      (a.document.querySelectorAll('.animate-variant')[1] as HTMLElement).click();
+      expect(a.document.querySelector('#preview-label')?.textContent).toContain('Variante 2:');
+      vi.advanceTimersByTime(550);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      vi.advanceTimersByTime(550);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('1/2');
+      a.dom.window.newGame();
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#status')?.textContent).toContain('lance 0/0');
+      expect(a.document.querySelector('#preview-playback')?.hasAttribute('hidden')).toBe(true);
+      a.dom.window.go(0);
+      vi.advanceTimersByTime(500);
+      a.click('.animate-variant');
+      a.dom.window.dispatchEvent(new a.dom.window.Event('pagehide'));
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/');
+      expect(a.document.querySelector('#preview-toggle')?.textContent).toContain('Reproduzir');
+    } finally {a.close();vi.useRealTimers();}
+  });
+});
+
 describe('Stockfish search synchronization',()=>{
   function engine(){const result=vi.fn();const coach=new StockfishCoach(result,vi.fn());coach.worker={postMessage:vi.fn(),terminate:vi.fn()};coach.ready=true;return {coach,result};}
   const position=(key:string)=>({key,fen:key,history:{startFen:key,moves:[]},depth:12,expected:1});
@@ -120,7 +351,7 @@ describe('Stockfish search synchronization',()=>{
 describe('Stockfish without Workers',()=>{
   it('keeps engine globals private and delivers UCI messages asynchronously',async()=>{
     const original=globalThis.onmessage;
-    const port=createInlineStockfish('var Module={};onmessage=e=>postMessage(e.data+"ok");');
+    const port=createInlineStockfish(postMessage => data => postMessage(data + 'ok'));
     const output=vi.fn();port.onmessage=output;
     port.postMessage('uci');expect(output).not.toHaveBeenCalled();
     await new Promise(resolve=>setTimeout(resolve,30));
@@ -128,7 +359,10 @@ describe('Stockfish without Workers',()=>{
     expect(globalThis.onmessage).toBe(original);port.terminate();
   });
   it('cancels queued commands and engine timers on disposal',async()=>{
-    const port=createInlineStockfish('setTimeout(()=>postMessage("late"),15);onmessage=e=>postMessage(e.data);');
+    const port=createInlineStockfish((postMessage, _close, schedule) => {
+      schedule(() => postMessage("late"), 15);
+      return () => {};
+    });
     const output=vi.fn();port.onmessage=output;port.postMessage('uci');port.terminate();
     await new Promise(resolve=>setTimeout(resolve,30));expect(output).not.toHaveBeenCalled();
   });

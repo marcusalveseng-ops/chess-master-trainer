@@ -2,6 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+    <!-- CSP -->
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#262522" />
     <title>Chess • Seu espaço de xadrez</title>
@@ -14,25 +15,27 @@
         ><span class="brand-piece" aria-hidden="true">♞</span
         ><span>Chess<b>Seu espaço de xadrez</b></span></a
       >
-      <nav class="main-nav" aria-label="Áreas do aplicativo">
-        <button class="active" data-panel="0" aria-current="page">
-          <span aria-hidden="true">♟</span>Jogar e analisar
+      <div class="main-nav" role="tablist" aria-label="Áreas do aplicativo" aria-orientation="vertical">
+        <button id="tab0" role="tab" aria-selected="true" aria-controls="p0">
+          <span aria-hidden="true">♟</span>Análise
         </button>
-        <button data-panel="1">
-          <span aria-hidden="true">▤</span>Biblioteca
+        <button id="tab1" role="tab" aria-selected="false" aria-controls="p1" aria-label="Partidas modelo" tabindex="-1">
+          <span aria-hidden="true">▤</span>Modelos
         </button>
-        <button data-panel="2">
-          <span aria-hidden="true">◷</span>Minhas partidas
+        <button id="tab2" role="tab" aria-selected="false" aria-controls="p2" tabindex="-1">
+          <span aria-hidden="true">◷</span>Salvas
         </button>
-        <button data-panel="3">
-          <span aria-hidden="true">⇅</span>Importar PGN
+        <button id="tab3" role="tab" aria-selected="false" aria-controls="p3" tabindex="-1">
+          <span aria-hidden="true">⇅</span>PGN
         </button>
-      </nav>
+        <button id="tab4" role="tab" aria-selected="false" aria-controls="p4" tabindex="-1">
+          <span aria-hidden="true">◎</span>Exercícios
+        </button>
+      </div>
       <div class="library-note">
         <span class="eyebrow">APRENDA COM OS MESTRES</span
         ><strong id="library-total">205 <small>partidas</small></strong>
         <p>Explore cada lance. Descubra novos planos.</p>
-        <button class="subtle" data-panel="1">Explorar biblioteca →</button>
       </div>
       <div class="sidebar-bottom">
         <span class="status-dot"></span> Seu treino, no seu navegador<small
@@ -50,7 +53,7 @@
           ><span class="status-dot"></span> Análise local</span
         >
       </header>
-      <div class="play-settings">
+      <div class="play-settings" id="play-settings">
         <label
           >Modo
           <select id="game-mode">
@@ -81,7 +84,16 @@
         ><span id="bot-status" role="status"></span>
       </div>
       <div class="workspace">
-        <section class="game-area" aria-label="Partida de xadrez">
+        <section class="game-area" id="main-game" aria-label="Partida de xadrez">
+          <section id="preview-playback" class="preview-playback" aria-label="Reprodução da variante" hidden>
+            <strong id="preview-label"></strong>
+            <span id="preview-progress" role="status"></span>
+            <div class="row">
+              <button id="preview-toggle" class="pri">▶ Reproduzir</button>
+              <button id="preview-restart">↺ Início</button>
+            </div>
+            <small>Use as setas do tabuleiro para explorar lance a lance. A partida original está preservada.</small>
+          </section>
           <div class="player-row" id="player-top">
             <span class="avatar" aria-hidden="true">♚</span>
             <div class="player-info">
@@ -112,28 +124,28 @@
             <div class="controls" aria-label="Navegar pelos lances">
               <button
                 id="first-move"
-                onclick="go(0)"
+
                 aria-label="Primeiro lance"
                 title="Início (Home)"
               >
                 ⏮</button
               ><button
                 id="previous-move"
-                onclick="goBack()"
+
                 aria-label="Lance anterior"
                 title="Lance anterior (←)"
               >
                 ◀</button
               ><button
                 id="next-move"
-                onclick="goNext()"
+
                 aria-label="Próximo lance"
                 title="Próximo lance (→)"
               >
                 ▶</button
               ><button
                 id="last-move"
-                onclick="goEnd()"
+
                 aria-label="Último lance"
                 title="Final (End)"
               >
@@ -142,11 +154,11 @@
             </div>
             <button
               class="subtle"
-              onclick="flipBoard()"
+              id="flip-board"
               title="Girar tabuleiro"
             >
               ↻ Girar</button
-            ><button class="pri" onclick="newGame()">＋ Nova partida</button>
+            ><button class="pri" id="new-game">＋ Nova partida</button>
           </div>
           <div id="status" role="status"></div>
           <div
@@ -158,7 +170,8 @@
           <button id="return-main" class="pri" hidden>
             ← Voltar à partida
           </button>
-          <div id="notice" role="alert"></div>
+          <div id="notice" role="status"></div>
+          <button id="cancel-library-import" class="subtle" hidden>Cancelar importação</button>
           <section class="move-sheet" aria-label="Histórico de lances">
             <div class="section-label">
               <h2>Lances da partida</h2>
@@ -167,7 +180,18 @@
             <div id="moves"></div>
           </section>
         </section>
-        <aside class="analysis-panel" aria-label="Análise e biblioteca">
+        <section class="game-area" id="exercise-area" aria-labelledby="exercise-title" hidden>
+          <div class="section-label">
+            <h2 id="exercise-title">Tabuleiro de exercícios</h2>
+            <span id="exercise-side" class="muted"></span>
+          </div>
+          <p id="exercise-goal"></p>
+          <div id="exercise-board" role="group" aria-label="Casas do tabuleiro de exercícios"></div>
+          <div id="exercise-promotion" class="row" role="group" aria-label="Escolher peça para promoção" hidden></div>
+          <p id="exercise-feedback" role="status"></p>
+          <p id="exercise-solution" aria-live="polite"></p>
+        </section>
+        <aside class="analysis-panel" aria-label="Ferramentas de xadrez">
           <div class="panel-heading">
             <span class="assistant-icon" aria-hidden="true">♞</span>
             <div>
@@ -175,52 +199,11 @@
               <p id="panel-subtitle">Veja possibilidades antes de decidir.</p>
             </div>
           </div>
-          <div class="tabs" role="tablist" aria-label="Ferramentas da partida">
-            <button
-              class="on"
-              id="tab0"
-              role="tab"
-              aria-selected="true"
-              aria-controls="p0"
-              onclick="tab(0)"
-            >
-              Análise
-            </button>
-            <button
-              id="tab1"
-              role="tab"
-              aria-selected="false"
-              aria-controls="p1"
-              tabindex="-1"
-              onclick="tab(1)"
-            >
-              Biblioteca
-            </button>
-            <button
-              id="tab2"
-              role="tab"
-              aria-selected="false"
-              aria-controls="p2"
-              tabindex="-1"
-              onclick="tab(2)"
-            >
-              Salvas
-            </button>
-            <button
-              id="tab3"
-              role="tab"
-              aria-selected="false"
-              aria-controls="p3"
-              tabindex="-1"
-              onclick="tab(3)"
-            >
-              PGN
-            </button>
-          </div>
           <section
             class="panel on"
             id="p0"
             role="tabpanel"
+            tabindex="0"
             aria-labelledby="tab0"
           >
             <div class="evaluation">
@@ -252,12 +235,13 @@
             </div>
             <div id="pvline"></div>
             <div id="coach" aria-live="polite" aria-atomic="true"></div>
-            <button class="pri analyze-button" onclick="analyze(true)">
+            <button class="pri analyze-button" id="analyze-now">
               Analisar esta posição
             </button>
             <p class="help-text">
-              Valor positivo favorece quem tem a vez. Explore uma variante com
-              as setas e depois retorne à sua partida. As linhas são
+              Valor positivo favorece quem tem a vez. Nas duas primeiras sugestões,
+              use “Animar variante” para reproduzir e pausar no tabuleiro.
+              Você também pode explorar com as setas e depois retornar à partida. As linhas são
               possibilidades, não garantias.
             </p>
           </section>
@@ -265,6 +249,7 @@
             class="panel"
             id="p1"
             role="tabpanel"
+            tabindex="0"
             aria-labelledby="tab1"
             hidden
           >
@@ -273,10 +258,9 @@
               type="search"
               id="q"
               placeholder="Jogador, evento ou abertura…"
-              oninput="renderDB()"
             />
             <div class="row">
-              <button onclick="document.getElementById('dbfile').click()">
+              <button id="open-db-file">
                 ＋ Carregar base PGN</button
               ><input type="file" id="dbfile" accept=".pgn" hidden /><span
                 class="muted"
@@ -286,25 +270,36 @@
             </div>
             <div class="library-filters">
               <label for="player1">Jogador 1 (qualquer cor)</label
-              ><input
+              ><div class="player-autocomplete"><input
                 id="player1"
                 type="search"
                 placeholder="Ex.: Carlsen"
-                oninput="renderDB()"
-              />
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="player1-suggestions"
+                autocomplete="off"
+                spellcheck="false"
+              /><ul id="player1-suggestions" class="player-suggestions" role="listbox" aria-label="Sugestões para jogador 1" hidden></ul></div>
               <label for="player2">Jogador 2 (qualquer cor)</label
-              ><input
+              ><div class="player-autocomplete"><input
                 id="player2"
                 type="search"
                 placeholder="Ex.: Nakamura"
-                oninput="renderDB()"
-              />
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="player2-suggestions"
+                autocomplete="off"
+                spellcheck="false"
+              /><ul id="player2-suggestions" class="player-suggestions" role="listbox" aria-label="Sugestões para jogador 2" hidden></ul></div>
+              <small class="muted">Digite duas letras para ver os jogadores da base. Use ↑ ↓ e Enter ou clique em um nome.</small>
               <label for="opening-filter">Abertura</label
-              ><select id="opening-filter" onchange="renderDB()">
+              ><select id="opening-filter">
                 <option value="">Todas as aberturas</option>
               </select>
               <label for="defense-filter">Defesa</label
-              ><select id="defense-filter" onchange="renderDB()">
+              ><select id="defense-filter">
                 <option value="">Todas as defesas</option>
               </select>
               <button id="clear-filters">Limpar filtros</button>
@@ -335,6 +330,7 @@
             class="panel"
             id="p2"
             role="tabpanel"
+            tabindex="0"
             aria-labelledby="tab2"
             hidden
           >
@@ -346,9 +342,9 @@
               placeholder="Ex.: Meu estudo da Siciliana"
             />
             <div class="row">
-              <button class="pri" onclick="saveGame()">
+              <button class="pri" id="save-game">
                 Salvar partida completa</button
-              ><button onclick="downloadSaved()">Baixar histórico PGN</button>
+              ><button id="download-saved">Baixar histórico PGN</button>
             </div>
             <p class="help-text">
               Mesmo ao revisar um lance anterior, a partida principal é salva
@@ -360,6 +356,7 @@
             class="panel"
             id="p3"
             role="tabpanel"
+            tabindex="0"
             aria-labelledby="tab3"
             hidden
           >
@@ -371,20 +368,59 @@
               spellcheck="false"
             ></textarea>
             <div class="row">
-              <button class="pri" onclick="importBox()">Importar PGN</button
-              ><button onclick="document.getElementById('onefile').click()">
+              <button class="pri" id="import-pgn">Importar PGN</button
+              ><button id="open-pgn-file">
                 Abrir arquivo</button
               ><input type="file" id="onefile" accept=".pgn" hidden />
             </div>
             <div class="row">
-              <button onclick="exportPGN()">Exportar posição exibida</button
-              ><button onclick="downloadPGN()">Baixar PGN exibido</button>
+              <button id="export-pgn">Exportar posição exibida</button
+              ><button id="download-pgn">Baixar PGN exibido</button>
             </div>
             <p class="help-text">
               A exportação inclui os lances até a posição exibida. Para guardar
               toda a partida, use a aba Salvas. Arquivos com várias partidas
               abrem na Biblioteca.
             </p>
+          </section>
+          <section class="panel" id="p4" role="tabpanel" tabindex="0" aria-labelledby="tab4" hidden>
+            <label class="field-label" for="exercise-stage">Fase do jogo</label>
+            <select id="exercise-stage"><option value="">Todas as fases</option></select>
+            <label class="field-label" for="exercise-theme">Tipo de problema</label>
+            <select id="exercise-theme"><option value="">Todos os tipos</option></select>
+            <label class="field-label" for="exercise-origin">Origem ou autor</label>
+            <select id="exercise-origin">
+              <option value="">Todas as origens</option>
+              <option value="classic">Estudos clássicos</option>
+              <option value="lichess">Lichess</option>
+            </select>
+            <label class="field-label" for="exercise-level">Dificuldade (Lichess)</label>
+            <select id="exercise-level">
+              <option value="">Todas</option>
+              <option value="intro">Até 1299</option>
+              <option value="intermediate">1300–1799</option>
+              <option value="advanced">1800 ou mais</option>
+            </select>
+            <p id="exercise-count" class="help-text" role="status"></p>
+            <a class="exercise-board-link" href="#exercise-title">Ir para o tabuleiro ↑</a>
+            <div class="row">
+              <button class="pri" id="exercise-next">Próximo exercício</button>
+              <button id="exercise-reset">Recomeçar</button>
+            </div>
+            <div class="row">
+              <button id="exercise-hint">Dica</button>
+              <button id="exercise-reveal">Ver solução</button>
+            </div>
+            <p id="exercise-meta" class="help-text"></p>
+            <a id="exercise-source" target="_blank" rel="noopener"></a>
+            <details class="exercise-reading">
+              <summary>Fontes e leituras</summary>
+              <p>Problemas de partidas reais: <a href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener">base aberta do Lichess (CC0)</a>.</p>
+              <p><a href="https://www.gutenberg.org/ebooks/33870" target="_blank" rel="noopener"><i>Chess Fundamentals</i>, de Capablanca</a>: controle do centro e mates elementares. <a href="https://commons.wikimedia.org/wiki/File:Chess_fundamentals_(IA_chessfundamental00capa).pdf" target="_blank" rel="noopener">Edição digitalizada em PDF</a>.</p>
+              <p><a href="https://commons.wikimedia.org/wiki/File:Common_sense_in_chess_(IA_commonsenseinche00laskrich).pdf" target="_blank" rel="noopener"><i>Common Sense in Chess</i>, de Emanuel Lasker (PDF)</a>: desenvolvimento e ataque ao rei.</p>
+              <p><a href="https://www.gutenberg.org/ebooks/4913" target="_blank" rel="noopener"><i>Chess and Checkers: The Way to Mastership</i>, de Edward Lasker</a>: táticas, xeque perpétuo e peões passados.</p>
+              <p><a href="https://www.arves.org/arves/images/PDF/JohnBeasley/reti1.pdf" target="_blank" rel="noopener">Estudos de peões de Richard Réti (PDF)</a>: finais sobre corridas de promoção e recursos de empate.</p>
+            </details>
           </section>
         </aside>
       </div>
@@ -393,7 +429,7 @@
         <span
           >Stockfish 10.0.2 ·
           <a
-            href="https://github.com/niklasf/stockfish.js"
+            href="https://github.com/niklasf/stockfish.js/tree/e105072e84cf8ee5dd5219e2c5be29c3b8bf8a5a"
             target="_blank"
             rel="noopener"
             >Código-fonte GPLv3</a
@@ -402,5 +438,6 @@
       </footer>
     </main>
     <!-- APPLICATION -->
+    <!-- STOCKFISH LICENSE -->
   </body>
 </html>

@@ -1,4 +1,5 @@
-import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { randomUUID } from "node:crypto";
+import { AXIOS_TIMEOUT_MS, COOKIE_NAME } from "@shared/const";
 import { ForbiddenError } from "@shared/_core/errors";
 import axios, { type AxiosInstance } from "axios";
 import { parse as parseCookieHeader } from "cookie";
@@ -18,6 +19,9 @@ import type {
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
+export const SESSION_MAX_AGE_MS = 8 * 60 * 60_000;
+const SESSION_ISSUER = "chess-master-trainer";
+
 export type SessionPayload = {
   openId: string;
   appId: string;
@@ -30,7 +34,7 @@ const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserI
 
 class OAuthService {
   constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
+
     if (!ENV.oAuthServerUrl) {
       console.error(
         "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
@@ -38,20 +42,15 @@ class OAuthService {
     }
   }
 
-  private decodeState(state: string): string {
-    const redirectUri = atob(state);
-    return redirectUri;
-  }
-
   async getTokenByCode(
     code: string,
-    state: string
+    redirectUri: string
   ): Promise<ExchangeTokenResponse> {
     const payload: ExchangeTokenRequest = {
       clientId: ENV.appId,
       grantType: "authorization_code",
       code,
-      redirectUri: this.decodeState(state),
+      redirectUri,
     };
 
     const { data } = await this.client.post<ExchangeTokenResponse>(
@@ -116,13 +115,13 @@ class SDKServer {
   /**
    * Exchange OAuth authorization code for access token
    * @example
-   * const tokenResponse = await sdk.exchangeCodeForToken(code, state);
+   * const tokenResponse = await sdk.exchangeCodeForToken(code, redirectUri);
    */
   async exchangeCodeForToken(
     code: string,
-    state: string
+    redirectUri: string
   ): Promise<ExchangeTokenResponse> {
-    return this.oauthService.getTokenByCode(code, state);
+    return this.oauthService.getTokenByCode(code, redirectUri);
   }
 
   /**
@@ -154,7 +153,12 @@ class SDKServer {
     return new Map(Object.entries(parsed));
   }
 
+  sessionConfigured() {
+    return Boolean(ENV.appId) && Buffer.byteLength(ENV.cookieSecret) >= 32;
+  }
+
   private getSessionSecret() {
+    if (!this.sessionConfigured()) throw new Error("Session signing is not configured");
     const secret = ENV.cookieSecret;
     return new TextEncoder().encode(secret);
   }
@@ -183,7 +187,7 @@ class SDKServer {
     options: { expiresInMs?: number } = {}
   ): Promise<string> {
     const issuedAt = Date.now();
-    const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
+    const expiresInMs = Math.min(options.expiresInMs ?? SESSION_MAX_AGE_MS, SESSION_MAX_AGE_MS);
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 
@@ -193,43 +197,39 @@ class SDKServer {
       name: payload.name,
     })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setIssuer(SESSION_ISSUER)
+      .setAudience(ENV.appId)
+      .setJti(randomUUID())
+      .setIssuedAt(Math.floor(issuedAt / 1000))
       .setExpirationTime(expirationSeconds)
       .sign(secretKey);
   }
 
-  async verifySession(
-    cookieValue: string | undefined | null
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
-    if (!cookieValue) {
-      console.warn("[Auth] Missing session cookie");
-      return null;
-    }
-
+  async verifySession(cookieValue: string | undefined | null) {
+    if (!cookieValue) return null;
     try {
-      const secretKey = this.getSessionSecret();
-      const { payload } = await jwtVerify(cookieValue, secretKey, {
+      const { payload } = await jwtVerify(cookieValue, this.getSessionSecret(), {
         algorithms: ["HS256"],
+        issuer: SESSION_ISSUER,
+        audience: ENV.appId,
+        maxTokenAge: "8h",
+        requiredClaims: ["exp", "iat", "jti"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
-
-      if (
-        !isNonEmptyString(openId) ||
-        !isNonEmptyString(appId) ||
-        !isNonEmptyString(name)
-      ) {
-        console.warn("[Auth] Session payload missing required fields");
+      const { openId, appId, name, jti, exp } = payload;
+      if (!isNonEmptyString(openId) || appId !== ENV.appId ||
+          typeof name !== "string" || typeof jti !== "string" || typeof exp !== "number") {
         return null;
       }
-
-      return {
-        openId,
-        appId,
-        name,
-      };
-    } catch (error) {
-      console.warn("[Auth] Session verification failed", String(error));
+      return { openId, appId, name, jti, exp };
+    } catch {
       return null;
     }
+  }
+
+  async revokeRequestSession(req: Request) {
+    const token = this.parseCookies(req.headers.cookie).get(COOKIE_NAME);
+    const session = await this.verifySession(token);
+    if (session) await db.revokeSession(session.jti, new Date(session.exp * 1000));
   }
 
   async getUserInfoWithJwt(
@@ -262,7 +262,7 @@ class SDKServer {
     const sessionCookie = cookies.get(COOKIE_NAME);
     const session = await this.verifySession(sessionCookie);
 
-    if (!session) {
+    if (!session || await db.isSessionRevoked(session.jti)) {
       throw ForbiddenError("Invalid session cookie");
     }
 
@@ -292,7 +292,7 @@ class SDKServer {
         });
         user = await db.getUserByOpenId(userInfo.openId);
       } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
+        console.error("[Auth] Failed to sync user from OAuth:");
         throw ForbiddenError("Failed to sync user info");
       }
     }
@@ -300,11 +300,6 @@ class SDKServer {
     if (!user) {
       throw ForbiddenError("User not found");
     }
-
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
 
     return user;
   }

@@ -1,3 +1,5 @@
+import { PGN_MAX_BYTES, PGN_MAX_PLIES } from "@shared/pgn-limits";
+import { TRPCError } from "@trpc/server";
 import { Chess } from 'chess.js';
 
 /**
@@ -42,6 +44,9 @@ export interface GameForExport {
  * Parser de PGN
  */
 export function parsePGN(pgnText: string): ParsedPGN {
+  if (Buffer.byteLength(pgnText, "utf8") > PGN_MAX_BYTES) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "PGN excede 60 KB." });
+  }
   const game = new Chess();
   game.loadPgn(pgnText);
   const metadata: PGNMetadata = {};
@@ -50,6 +55,9 @@ export function parsePGN(pgnText: string): ParsedPGN {
   const comments: Record<number, string> = {};
   const commentsByFen = new Map(game.getComments().map(item => [item.fen, item.comment]));
   const history = game.history({ verbose: true });
+  if (history.length > PGN_MAX_PLIES) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "PGN excede 600 meios-lances." });
+  }
   history.forEach((move, index) => { const comment = commentsByFen.get(move.after); if (comment) comments[index + 1] = comment; });
   return { metadata, moves: history.map(move => move.san), comments, annotations: {}, variations: {}, fen: game.getHeaders().FEN };
 }
@@ -60,11 +68,10 @@ export function parsePGN(pgnText: string): ParsedPGN {
 export function validatePGN(pgnText: string): { valid: boolean; errors: string[] } {
   if (!pgnText.trim()) return { valid: false, errors: ['PGN está vazio'] };
   try {
-    const game = new Chess();
-    game.loadPgn(pgnText);
+    parsePGN(pgnText);
     return { valid: true, errors: [] };
   } catch (error) {
-    return { valid: false, errors: [error instanceof Error ? error.message : 'PGN inválido'] };
+    return { valid: false, errors: [error instanceof TRPCError ? error.message : 'PGN inválido'] };
   }
 }
 
@@ -192,10 +199,11 @@ export function importMultiplePGNs(fileContent: string): ParsedPGN[] {
   // Divide por linhas em branco duplas (separador de partidas)
   const gameSections = fileContent.split(/\n\s*\n\s*\n/);
   
-  return gameSections
-    .map(section => section.trim())
-    .filter(section => section.length > 0)
-    .map(section => parsePGN(section));
+  const games = gameSections.map(section => section.trim()).filter(Boolean);
+  if (games.length > 100) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Limite de 100 partidas por importação." });
+  }
+  return games.map(parsePGN);
 }
 
 /**

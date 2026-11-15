@@ -5,6 +5,18 @@ import type { TrpcContext } from "./context";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
+  errorFormatter({ shape, ctx }) {
+    const { stack: _stack, ...data } = shape.data;
+    if (data.code === "INTERNAL_SERVER_ERROR") {
+      const requestId = ctx?.res.getHeader?.("x-request-id");
+      return {
+        ...shape,
+        message: "Não foi possível concluir a solicitação.",
+        data: { ...data, requestId },
+      };
+    }
+    return { ...shape, data };
+  },
 });
 
 export const router = t.router;

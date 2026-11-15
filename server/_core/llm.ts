@@ -381,7 +381,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  const resolvedMaxTokens = max_tokens ?? maxTokens;
+  const resolvedMaxTokens = Math.min(max_tokens ?? maxTokens ?? 800, 1200);
   if (typeof resolvedMaxTokens === "number") {
     payload.max_tokens = resolvedMaxTokens;
   }
@@ -405,7 +405,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   }
 
   const response = await fetchWithBackoff(resolveApiUrl(), {
-    signal: params.signal,
+    signal: params.signal ?? AbortSignal.timeout(15_000),
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -415,10 +415,8 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
+    await response.body?.cancel();
+    throw new Error(`LLM invoke failed: ${response.status}`);
   }
 
   return (await response.json()) as InvokeResult;
@@ -448,10 +446,8 @@ export async function listLLMModels(): Promise<ModelsResponse> {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `List LLM models failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
+    await response.body?.cancel();
+    throw new Error(`List LLM models failed: ${response.status}`);
   }
 
   return (await response.json()) as ModelsResponse;

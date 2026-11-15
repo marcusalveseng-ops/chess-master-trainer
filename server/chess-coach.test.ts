@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Chess } from 'chess.js';
 import { analyzePosition } from '../shared/chess-coach';
+import { explainCandidate } from '../shared/coach-explanation';
 import { positionAt } from '../shared/chess-position';
 vi.mock('./_core/llm', () => ({ invokeLLM: vi.fn() }));
 import { invokeLLM } from './_core/llm';
@@ -71,6 +72,27 @@ describe('local chess AI', () => {
     expect(a.candidates).toHaveLength(3);
   });
 });
+describe('variant risks', () => {
+  it('explains central control and the later pawn capture in the Bxc4 line', () => {
+    const game = new Chess();
+    game.loadPgn('1. d4 d5 2. c4 dxc4 3. e4 e5 4. Nf3 exd4');
+    const line = ['Bxc4', 'Nc6', 'O-O', 'h5', 'Bb5', 'Bd7', 'Bxc6', 'Bxc6', 'Nxd4', 'Bxe4'];
+    expect(explainCandidate(game.fen(), line, 126).risks).toEqual([
+      'Com Nc6, o adversário move o cavalo de b8 para c6, de onde o cavalo controla d4 e e5.',
+      'Na linha calculada, depois de Nxd4, o bispo de c6 captura um peão em e4 com Bxe4.',
+    ]);
+  });
+
+  it('reports a forcing reply and does not invent a response for a shorter line', () => {
+    const game = new Chess();
+    game.loadPgn('1. f3 e5');
+    expect(explainCandidate(game.fen(), ['g4', 'Qh4#'], -100000).risks).toEqual([
+      'Com Qh4#, o adversário dá xeque-mate.',
+    ]);
+    expect(explainCandidate(game.fen(), ['g4'], 0).risks.join(' ')).toContain('Ainda não há uma resposta adversária');
+  });
+});
+
 describe('online coach boundary', () => {
   const context = { user: { id: 1 }, req: {}, res: {} } as any;
   it('rejects anonymous requests', async () => {

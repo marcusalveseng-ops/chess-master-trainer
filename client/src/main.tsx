@@ -25,7 +25,7 @@ queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
     redirectToLoginIfUnauthorized(error);
-    console.error("[API Query Error]", error);
+    console.error("[API] Query failed");
   }
 });
 
@@ -33,7 +33,7 @@ queryClient.getMutationCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.mutation.state.error;
     redirectToLoginIfUnauthorized(error);
-    console.error("[API Mutation Error]", error);
+    console.error("[API] Mutation failed");
   }
 });
 
@@ -41,6 +41,8 @@ const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
       url: "/api/trpc",
+      methodOverride: "POST",
+      maxItems: 10,
       transformer: superjson,
       fetch(input, init) {
         return globalThis.fetch(input, {

@@ -1,3 +1,4 @@
+import { pgnText, positiveId, pageSize, pageOffset } from "../_core/api-input";
 import { z } from 'zod';
 import { protectedProcedure, router } from '../_core/trpc';
 import { TRPCError } from '@trpc/server';
@@ -15,7 +16,7 @@ export const gamePersistenceRouter = router({
   // Save a game
   saveGame: protectedProcedure
     .input(z.object({
-      pgn: z.string(),
+      pgn: pgnText,
       title: z.string(),
       notes: z.string().optional(),
       opening: z.string().optional(),
@@ -42,7 +43,6 @@ export const gamePersistenceRouter = router({
         return { success: true, gameId: saved.insertId };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Save game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to save game',
@@ -53,8 +53,8 @@ export const gamePersistenceRouter = router({
   // Get user's games
   getUserGames: protectedProcedure
     .input(z.object({
-      limit: z.number().default(50),
-      offset: z.number().default(0),
+      limit: pageSize,
+      offset: pageOffset,
     }))
     .query(async ({ input, ctx }) => {
       try {
@@ -71,7 +71,6 @@ export const gamePersistenceRouter = router({
         return userGames;
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Get games error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch games',
@@ -82,7 +81,7 @@ export const gamePersistenceRouter = router({
   // Get single game
   getGame: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
     }))
     .query(async ({ input, ctx }) => {
       try {
@@ -105,7 +104,6 @@ export const gamePersistenceRouter = router({
         return game[0];
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Get game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch game',
@@ -116,7 +114,7 @@ export const gamePersistenceRouter = router({
   // Update game
   updateGame: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
       title: z.string().optional(),
       notes: z.string().optional(),
       result: z.enum(['1-0', '0-1', '1/2-1/2']).optional(),
@@ -142,7 +140,6 @@ export const gamePersistenceRouter = router({
         return { success: true };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Update game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to update game',
@@ -153,7 +150,7 @@ export const gamePersistenceRouter = router({
   // Delete game
   deleteGame: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
     }))
     .mutation(async ({ input, ctx }) => {
       try {
@@ -167,7 +164,6 @@ export const gamePersistenceRouter = router({
         return { success: true };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Delete game error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to delete game',
@@ -178,7 +174,7 @@ export const gamePersistenceRouter = router({
   // Mark key position
   markKeyPosition: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
       fen: z.string(),
       moveNumber: z.number(),
       notes: z.string().optional(),
@@ -200,7 +196,6 @@ export const gamePersistenceRouter = router({
         return { success: true };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Mark key position error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to mark key position',
@@ -211,7 +206,7 @@ export const gamePersistenceRouter = router({
   // Get key positions for game
   getKeyPositions: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
     }))
     .query(async ({ input, ctx }) => {
       try {
@@ -227,7 +222,6 @@ export const gamePersistenceRouter = router({
         return positions;
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Get key positions error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch key positions',

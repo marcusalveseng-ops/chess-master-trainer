@@ -1,6 +1,5 @@
-// Tess permits scripts but blocks Blob Workers. Run the pinned engine in a local
-// scope, retain the UCI message barrier, and bound each search to a short burst.
-export function createInlineStockfish(code) {
+// Run the bundled engine with its own UCI callbacks and cancellable timers.
+export function createInlineStockfish(factory) {
   let closed = false,
     receive;
   const timers = new Set();
@@ -36,17 +35,7 @@ export function createInlineStockfish(code) {
     },
   };
   try {
-    // Function scope contains Emscripten's globals and onmessage. The source is
-    // fetched with a fixed integrity hash below, never from user input.
-    receive = new Function(
-      "postMessage",
-      "close",
-      "setTimeout",
-      "clearTimeout",
-      "var onmessage;\n" +
-        code +
-        "\n;return function(data){onmessage({data:data});};"
-    )(
+    receive = factory(
       data => later(() => port.onmessage?.({ data })),
       () => port.terminate(),
       later,
@@ -73,19 +62,10 @@ export class StockfishCoach {
     this.closed = false;
     this.cancelled = false;
   }
-  async init() {
+  init(factory) {
     try {
-      const url =
-        "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js";
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(15000),
-        integrity:
-          "sha384-VtbI9eXlyH0iLETxBo+yJZD0egEZcin9R4ntQlcrrKjRYSTQmdhoiY/jGV9SGw4Q",
-      });
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      const code = await response.text();
       if (this.closed) return;
-      this.worker = createInlineStockfish(code);
+      this.worker = createInlineStockfish(factory);
       this.worker.onmessage = e => this.message(String(e.data));
       this.worker.onerror = () => this.fail();
       this.worker.postMessage("uci");

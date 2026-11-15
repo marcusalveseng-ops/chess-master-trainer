@@ -15,11 +15,22 @@ pnpm build:tess
 
 O resultado é `dist/tess/index.html`: um arquivo HTML para atualizar **a página existente na mesma conversa da Tess**, sem criar outra Tess Page. O GitHub não está configurado para publicar automaticamente na Tess. Fazer commit ou merge não comprova publicação.
 
-Essa versão executa no navegador: partidas contra o bot (brancas ou pretas), Stockfish 10.0.2 sob demanda, três variantes com explicações locais de vantagens/riscos, simulação de linhas, navegação, promoção e importação/exportação PGN. A biblioteca tem 17.831 partidas válidas, com filtros combinados de jogadores, abertura e defesa. Usa chess.js 1.4.0 e o motor local de apoio em `shared/chess-coach.ts`. Se o Stockfish não carregar, o bot e o assistente continuam com uma busca local limitada.
+Para preparar a cópia de publicação com SHA-256, tamanho em bytes, versão de `package.json` e commit Git, execute `pnpm release:tess`. Esse comando executa o mesmo build e gera:
+
+- HTML para anexar: `dist/tess/release/Chess-Unificado-Tess.html`.
+- Manifesto para conferência: `dist/tess/release/manifest.json`.
+
+O HTML é uma cópia byte a byte de `dist/tess/index.html`. O manifesto fica separado do HTML e os dois são saídas locais ignoradas pelo Git. Veja [o procedimento de conferência e os caminhos absolutos](docs/RELEASE_TESS.md). A cópia manual `Chess-Unificado-Tess.html` na raiz não é atualizada por esses comandos.
+
+Essa versão executa no navegador: partidas contra o bot (brancas ou pretas), Stockfish 10.0.2 incluído no HTML, três variantes com explicações locais de vantagens/riscos, simulação de linhas, navegação, promoção e importação/exportação PGN. A biblioteca tem 17.831 partidas válidas, com filtros combinados de jogadores, abertura e defesa. Usa chess.js 1.4.0 e o motor local de apoio em `shared/chess-coach.ts`. Se o Stockfish não carregar, o bot e o assistente continuam com uma busca local limitada.
 
 Para treinar uma defesa, abra **Biblioteca**, selecione **Defesa**, abra uma partida e avance até a posição desejada. Escolha sua cor e clique em **Treinar desta posição**. Abrir PGNs entra em modo Estudo; **Nova partida** inicia contra o bot. Veja [comportamento, fontes e validação](docs/BOT_E_BIBLIOTECA_2026-11-05.md).
 
-A hospedagem Tess bloqueia Workers criados por URLs Blob. A exportação executa os motores no contexto da página, sem Workers, usando a política de scripts já oferecida pela Tess. O download do Stockfish verifica uma assinatura de integridade fixa. Cada busca do Stockfish solicita 220 ms e o apoio local tem orçamento de 160 ms; a profundidade exibida é a efetivamente concluída. Esses tempos são metas de busca, não uma garantia de latência: aparelhos lentos podem apresentar pequenas pausas na interface. O runtime cancela seus temporizadores ao sair da página.
+Nas duas primeiras sugestões do assistente, **Animar variante** prepara a sequência ao clicar e reproduz um meio-lance a cada 1,1 segundo no tabuleiro. Use **Pausar**, **Reproduzir**, **Início** ou as setas para explorar; a navegação manual pausa a reprodução. Ao terminar, **Repetir** reinicia a linha e **Voltar à partida** recupera a posição original. Trocar de variante, iniciar ou carregar uma partida e sair da página interrompem a reprodução. A animação respeita a preferência de movimento reduzido do navegador e não altera a partida salva.
+
+As funções **Análise**, **Partidas modelo**, **Salvas** e **PGN** têm painéis laterais com rolagem própria; os atalhos verticais alternam o painel sem perder a posição de rolagem dos demais. Na busca de partidas modelo, digite duas letras nos campos **Jogador 1** ou **Jogador 2** para ver até oito sugestões de nomes da base carregada. Escolha por clique ou pelas setas ↑/↓ e Enter; Escape fecha as sugestões. Os nomes mais presentes vêm primeiro, e a busca aceita diferenças de maiúsculas e acentos. Importar outra base PGN atualiza as sugestões.
+
+A exportação inclui uma versão fixa do Stockfish e verifica os bytes do motor na compilação. A política CSP autoriza o script do próprio HTML pelo hash SHA-256. Cada busca do Stockfish solicita até 220 ms. A busca de apoio tem orçamento de 160 ms e continua disponível se o motor não inicializar.
 
 As partidas salvas mantêm a chave `xsf_saved` e ficam associadas ao navegador e ao endereço da página. Faça backup com **Baixar histórico PGN**. A aplicação não envia essas partidas a um servidor. A exportação usa a posição exibida; voltar e jogar outro lance cria uma nova continuação.
 
@@ -45,4 +56,4 @@ Os testes de integração da exportação constroem o HTML, verificam cliques, h
 - O HTML anterior publicado foi recuperado diretamente da URL existente e sua biblioteca PGN foi validada integralmente: 205 partidas, 17.135 meios-lances, sem erro de leitura.
 - Para reverter o código, reverta o commit de integração. Para reverter o site, publique a exportação anterior na mesma conversa da Tess. Ações no GitHub não alteram automaticamente a Tess Page.
 
-Stockfish é distribuído pelos autores sob GPLv3 e carregado do cdnjs. [Código-fonte do motor](https://github.com/niklasf/stockfish.js). As observações e avaliações indicam possibilidades, não garantem a resposta do adversário.
+Stockfish é distribuído sob GPLv3. A licença acompanha o HTML e o código-fonte da versão compilada está no [commit upstream](https://github.com/niklasf/stockfish.js/tree/e105072e84cf8ee5dd5219e2c5be29c3b8bf8a5a). As observações e avaliações indicam possibilidades, não garantem a resposta do adversário.
