@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {classify,matchesGame} from '../standalone/library.js';
+import {classify,matchesGame,buildPlayerIndex,suggestPlayers} from '../standalone/library.js';
 describe('opening and defense filters',()=>{
  it('distinguishes the Caro-Kann from the Italian game',()=>{
   expect(classify(['e4','c6','d4','d5'])).toMatchObject({opening:'Peão do Rei',defense:'Caro-Kann'});
@@ -10,5 +10,24 @@ describe('opening and defense filters',()=>{
   expect(matchesGame(g,{player1:'carlsen',player2:'nakamura',defense:'Caro-Kann'})).toBe(true);
   expect(matchesGame(g,{opening:'Italiana',defense:'Caro-Kann'})).toBe(false);
   expect(matchesGame(g,{query:'karo khan'})).toBe(true);
+ });
+});
+describe('player autocomplete',()=>{
+ it('deduplicates both colors and ranks names by appearances',()=>{
+  const index=buildPlayerIndex([
+   {W:'Carlsen, Magnus',B:'Nakamura, Hikaru'},
+   {W:'NAKAMURA, HIKARU',B:'Carlsen, Magnus'},
+   {W:'Carlsen, Magnus',B:'?'},
+  ]);
+  expect(index).toHaveLength(2);
+  expect(suggestPlayers(index,'ca')[0]).toMatchObject({name:'Carlsen, Magnus',count:3});
+  expect(suggestPlayers(index,'NAKA')[0]).toMatchObject({name:'Nakamura, Hikaru',count:2});
+ });
+ it('matches accents and multiple name fragments without suggesting unknown names',()=>{
+  const index=buildPlayerIndex([{W:'Grünfeld, Ernst',B:'Carlsen, Magnus'}]);
+  expect(suggestPlayers(index,'GRUN')).toHaveLength(1);
+  expect(suggestPlayers(index,'Magnus Carl')[0]?.name).toBe('Carlsen, Magnus');
+  expect(suggestPlayers(index,'g')).toEqual([]);
+  expect(suggestPlayers(index,'inexistente')).toEqual([]);
  });
 });

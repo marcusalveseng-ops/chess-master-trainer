@@ -184,7 +184,7 @@
               <p id="panel-subtitle">Veja possibilidades antes de decidir.</p>
             </div>
           </div>
-          <div class="tabs" role="tablist" aria-label="Ferramentas da partida">
+          <div class="tabs" role="tablist" aria-label="Funções laterais" aria-orientation="vertical">
             <button
               class="on"
               id="tab0"
@@ -193,7 +193,7 @@
               aria-controls="p0"
               onclick="tab(0)"
             >
-              Análise
+              <span class="tab-icon" aria-hidden="true">♞</span><span>Análise</span>
             </button>
             <button
               id="tab1"
@@ -201,9 +201,10 @@
               aria-selected="false"
               aria-controls="p1"
               tabindex="-1"
+              aria-label="Partidas modelo"
               onclick="tab(1)"
             >
-              Biblioteca
+              <span class="tab-icon" aria-hidden="true">▤</span><span>Modelos</span>
             </button>
             <button
               id="tab2"
@@ -213,7 +214,7 @@
               tabindex="-1"
               onclick="tab(2)"
             >
-              Salvas
+              <span class="tab-icon" aria-hidden="true">◷</span><span>Salvas</span>
             </button>
             <button
               id="tab3"
@@ -223,13 +224,14 @@
               tabindex="-1"
               onclick="tab(3)"
             >
-              PGN
+              <span class="tab-icon" aria-hidden="true">⇅</span><span>PGN</span>
             </button>
           </div>
           <section
             class="panel on"
             id="p0"
             role="tabpanel"
+            tabindex="0"
             aria-labelledby="tab0"
           >
             <div class="evaluation">
@@ -275,6 +277,7 @@
             class="panel"
             id="p1"
             role="tabpanel"
+            tabindex="0"
             aria-labelledby="tab1"
             hidden
           >
@@ -296,19 +299,32 @@
             </div>
             <div class="library-filters">
               <label for="player1">Jogador 1 (qualquer cor)</label
-              ><input
+              ><div class="player-autocomplete"><input
                 id="player1"
                 type="search"
                 placeholder="Ex.: Carlsen"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="player1-suggestions"
+                autocomplete="off"
+                spellcheck="false"
                 oninput="renderDB()"
-              />
+              /><ul id="player1-suggestions" class="player-suggestions" role="listbox" aria-label="Sugestões para jogador 1" hidden></ul></div>
               <label for="player2">Jogador 2 (qualquer cor)</label
-              ><input
+              ><div class="player-autocomplete"><input
                 id="player2"
                 type="search"
                 placeholder="Ex.: Nakamura"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="player2-suggestions"
+                autocomplete="off"
+                spellcheck="false"
                 oninput="renderDB()"
-              />
+              /><ul id="player2-suggestions" class="player-suggestions" role="listbox" aria-label="Sugestões para jogador 2" hidden></ul></div>
+              <small class="muted">Digite duas letras para ver os jogadores da base. Use ↑ ↓ e Enter ou clique em um nome.</small>
               <label for="opening-filter">Abertura</label
               ><select id="opening-filter" onchange="renderDB()">
                 <option value="">Todas as aberturas</option>
@@ -345,6 +361,7 @@
             class="panel"
             id="p2"
             role="tabpanel"
+            tabindex="0"
             aria-labelledby="tab2"
             hidden
           >
@@ -370,6 +387,7 @@
             class="panel"
             id="p3"
             role="tabpanel"
+            tabindex="0"
             aria-labelledby="tab3"
             hidden
           >

@@ -4,7 +4,7 @@ import { explainCandidate } from "../shared/coach-explanation.ts";
 import { analyzePosition } from "../shared/chess-coach.ts";
 import { StockfishCoach } from "./engine.js";
 import pieces from "./pieces.json";
-import { classify, matchesGame } from "./library.js";
+import { classify, matchesGame, buildPlayerIndex, suggestPlayers } from "./library.js";
 import { BotOpponent } from "./bot.js";
 
 const $ = id => document.getElementById(id);
@@ -34,6 +34,8 @@ let preview = null,
   timer = null,
   currentOrigin = "",
   db = [];
+let playerIndex = [];
+const playerSuggestions = [];
 let gameMode = "bot",
   humanColor = "w",
   disposed = false,
@@ -103,6 +105,7 @@ function posAt(n) {
 }
 function tab(i) {
   if (i !== 0) pausePreview();
+  if (i !== 1) playerSuggestions.forEach(suggestions => suggestions.close());
   document.querySelectorAll(".tabs button").forEach((b, k) => {
     b.classList.toggle("on", k === i);
     b.setAttribute("aria-selected", String(k === i));
@@ -120,7 +123,7 @@ function tab(i) {
   }
   $("panel-title").textContent = [
     "Seu assistente de xadrez",
-    "Biblioteca de partidas",
+    "Partidas modelo",
     "Suas partidas salvas",
     "Importar e exportar",
   ][i];
@@ -879,7 +882,7 @@ document.querySelectorAll("[data-panel]").forEach(button =>
 );
 document.querySelectorAll('[role="tab"]').forEach((button, index) =>
   button.addEventListener("keydown", e => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return;
     e.preventDefault();
     e.stopPropagation();
     const next =
@@ -887,7 +890,7 @@ document.querySelectorAll('[role="tab"]').forEach((button, index) =>
         ? 0
         : e.key === "End"
           ? 3
-          : (index + (e.key === "ArrowRight" ? 1 : 3)) % 4;
+          : (index + (["ArrowRight", "ArrowDown"].includes(e.key) ? 1 : 3)) % 4;
     tab(next);
     $("tab" + next).focus();
   })
@@ -964,7 +967,70 @@ $("bot-level").onchange = () => {
 };
 render();
 renderSaved();
+for (const id of ["player1", "player2"]) {
+  const input = $(id), list = $(id + "-suggestions");
+  let matches = [], active = -1;
+  const close = () => {
+    list.hidden = true;
+    active = -1;
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+  };
+  const choose = index => {
+    input.value = matches[index].name;
+    input.focus();
+    close();
+    renderDB();
+  };
+  const highlight = () => {
+    [...list.children].forEach((option, index) =>
+      option.setAttribute("aria-selected", String(index === active))
+    );
+    if (active >= 0) input.setAttribute("aria-activedescendant", list.children[active].id);
+    else input.removeAttribute("aria-activedescendant");
+    if (active >= 0) list.children[active].scrollIntoView?.({ block: "nearest" });
+  };
+  const refresh = () => {
+    close();
+    list.replaceChildren();
+    if (document.activeElement !== input) return;
+    matches = suggestPlayers(playerIndex, input.value);
+    matches.forEach((player, index) => {
+      const option = document.createElement("li");
+      option.id = id + "-option-" + index;
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", "false");
+      option.textContent = player.name;
+      option.onclick = () => choose(index);
+      list.appendChild(option);
+    });
+    list.hidden = !matches.length;
+    input.setAttribute("aria-expanded", String(matches.length > 0));
+  };
+  list.onpointerdown = e => e.preventDefault();
+  input.addEventListener("input", refresh);
+  input.addEventListener("focus", refresh);
+  input.addEventListener("blur", close);
+  input.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      close();
+      e.preventDefault();
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (list.hidden) refresh();
+      if (!matches.length) return;
+      e.preventDefault();
+      active = (active + (e.key === "ArrowDown" ? 1 : active < 0 ? 0 : -1) + matches.length) % matches.length;
+      highlight();
+    } else if (e.key === "Enter" && !list.hidden && active >= 0) {
+      e.preventDefault();
+      choose(active);
+    }
+  });
+  playerSuggestions.push({ refresh, close });
+}
 function populateFilters() {
+  playerIndex = buildPlayerIndex(db);
+  playerSuggestions.forEach(suggestions => suggestions.refresh());
   for (const [id, key, label] of [
     ["opening-filter", "opening", "Todas as aberturas"],
     ["defense-filter", "defense", "Todas as defesas"],
@@ -1006,6 +1072,7 @@ $("db-next").onclick = () => {
   renderDB(false);
 };
 $("clear-filters").onclick = () => {
+  playerSuggestions.forEach(suggestions => suggestions.close());
   for (const id of [
     "q",
     "player1",

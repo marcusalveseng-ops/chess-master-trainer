@@ -9,6 +9,29 @@ export function normalize(value) {
     .toLowerCase()
     .replace(/karo[ -]?khan|caro[ -]?khan/g, "caro-kann");
 }
+export function buildPlayerIndex(games) {
+  const players = new Map();
+  for (const game of games) {
+    for (const raw of [game.W, game.B]) {
+      const name = String(raw || "").trim();
+      if (!name || name === "?") continue;
+      const key = normalize(name);
+      const player = players.get(key) || { name, key, count: 0 };
+      player.count++;
+      players.set(key, player);
+    }
+  }
+  return [...players.values()].sort((a, b) =>
+    b.count - a.count || a.name.localeCompare(b.name, "pt-BR")
+  );
+}
+export function suggestPlayers(index, query, limit = 8) {
+  const key = normalize(query).trim();
+  if (key.length < 2) return [];
+  const words = key.split(/\s+/);
+  return index.filter(player => words.every(word => player.key.includes(word)))
+    .slice(0, limit);
+}
 export function classify(sans) {
   let found = { eco: "", name: "Sem classificação" };
   for (let i = 1; i <= Math.min(sans.length, 32); i++) {

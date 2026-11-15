@@ -49,6 +49,50 @@ describe('single-file Tess export',()=>{
     expect(a.document.querySelector('#tab1')?.getAttribute('aria-selected')).toBe('true');
     expect(a.document.querySelectorAll('#board .coord')).toHaveLength(16);a.close();
   });
+  it('switches function sidebars with the keyboard and retains their scroll positions',()=>{
+    const a=app();try {
+      a.click('#tab1');
+      const library=a.document.querySelector('#p1') as HTMLElement;
+      library.scrollTop=120;
+      a.document.querySelector('#tab1')!.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+      expect(a.document.querySelector('#p2')?.hasAttribute('hidden')).toBe(false);
+      expect(a.document.activeElement?.id).toBe('tab2');
+      expect(a.document.querySelector('#panel-title')?.textContent).toBe('Suas partidas salvas');
+      a.click('#tab1');
+      expect(library.scrollTop).toBe(120);
+      expect(a.document.querySelector('#panel-title')?.textContent).toBe('Partidas modelo');
+      expect(a.document.querySelector('.tabs')?.getAttribute('aria-orientation')).toBe('vertical');
+    }finally{a.close();}
+  });
+  it('selects suggested player names by keyboard and click while combining model-game filters',async()=>{
+    const a=app();try {
+      await a.dom.window.libraryReady;
+      a.click('#tab1');
+      const player1=a.document.querySelector('#player1') as HTMLInputElement;
+      const player2=a.document.querySelector('#player2') as HTMLInputElement;
+      player1.focus();player1.value='carl';player1.dispatchEvent(new a.dom.window.Event('input',{bubbles:true}));
+      expect(player1.getAttribute('aria-expanded')).toBe('true');
+      expect(a.document.querySelectorAll('#player1-suggestions [role="option"]').length).toBeLessThanOrEqual(8);
+      player1.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+      expect(player1.getAttribute('aria-activedescendant')).toBe('player1-option-0');
+      player1.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+      expect(player1.value).toMatch(/Carlsen/i);
+      expect(player1.getAttribute('aria-expanded')).toBe('false');
+      player2.focus();player2.value='naka';player2.dispatchEvent(new a.dom.window.Event('input',{bubbles:true}));
+      a.click('#player2-suggestions [role="option"]');
+      expect(player2.value).toMatch(/Nakamura/i);
+      const defense=a.document.querySelector('#defense-filter') as HTMLSelectElement;
+      defense.value='Caro-Kann';defense.dispatchEvent(new a.dom.window.Event('change',{bubbles:true}));
+      expect(a.document.querySelector('#dbcount')?.textContent).toBe('7 de 17831 partidas');
+      player2.value='naka';player2.dispatchEvent(new a.dom.window.Event('input',{bubbles:true}));
+      player2.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+      expect(player2.getAttribute('aria-expanded')).toBe('false');
+      a.click('#clear-filters');
+      expect(player1.value).toBe('');expect(player2.value).toBe('');
+      expect(a.document.querySelector('#dbcount')?.textContent).toBe('17831 de 17831 partidas');
+      expect(a.errors).toEqual([]);
+    }finally{a.close();}
+  });
   it('produces alternatives when hosting blocks Workers and the CDN is offline',async()=>{
     const a=app(undefined,true);
     try {
