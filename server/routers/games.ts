@@ -1,3 +1,4 @@
+import { pgnText, positiveId, pageSize, pageOffset } from "../_core/api-input";
 import { z } from 'zod';
 import { protectedProcedure, router } from '../_core/trpc';
 import { createGame, getUserGames, getGameById, updateGame, createKeyPosition, getGameKeyPositions, getOrCreateOpeningStudy, getUserOpeningStudies, getOrCreateUserProgress, updateUserProgress } from '../db';
@@ -7,7 +8,7 @@ export const gamesRouter = router({
   // Create a new game
   create: protectedProcedure
     .input(z.object({
-      pgn: z.string(),
+      pgn: pgnText,
       title: z.string().optional(),
       opening: z.string().optional(),
       openingEco: z.string().optional(),
@@ -59,8 +60,8 @@ export const gamesRouter = router({
   // Get user's games
   list: protectedProcedure
     .input(z.object({
-      limit: z.number().default(50),
-      offset: z.number().default(0),
+      limit: pageSize,
+      offset: pageOffset,
     }))
     .query(async ({ ctx, input }) => {
       const games = await getUserGames(ctx.user.id, input.limit, input.offset);
@@ -70,7 +71,7 @@ export const gamesRouter = router({
   // Get a specific game
   get: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
     }))
     .query(async ({ ctx, input }) => {
       const game = await getGameById(input.gameId);
@@ -90,7 +91,7 @@ export const gamesRouter = router({
   // Update a game
   update: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
       title: z.string().optional(),
       notes: z.string().optional(),
       result: z.enum(['1-0', '0-1', '1/2-1/2', '*']).optional(),
@@ -118,7 +119,7 @@ export const gamesRouter = router({
   // Add a key position to a game
   addKeyPosition: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
       moveNumber: z.number(),
       fen: z.string(),
       annotation: z.string().optional(),
@@ -161,7 +162,7 @@ export const gamesRouter = router({
   // Get key positions for a game
   getKeyPositions: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
     }))
     .query(async ({ ctx, input }) => {
       const game = await getGameById(input.gameId);

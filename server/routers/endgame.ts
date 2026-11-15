@@ -1,3 +1,4 @@
+import { pgnText } from "../_core/api-input";
 import { z } from 'zod';
 import { protectedProcedure, publicProcedure, router } from '../_core/trpc';
 import { getDb } from '../db';
@@ -92,7 +93,7 @@ export const endgameRouter = router({
     .input(
       z.object({
         challengeId: z.number(),
-        pgn: z.string(),
+        pgn: pgnText,
         result: z.enum(['win', 'loss', 'draw', 'incomplete']),
         movesPlayed: z.number(),
         score: z.number(),

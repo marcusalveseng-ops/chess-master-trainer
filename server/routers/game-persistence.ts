@@ -1,3 +1,4 @@
+import { pgnText, positiveId, pageSize, pageOffset } from "../_core/api-input";
 import { z } from 'zod';
 import { protectedProcedure, router } from '../_core/trpc';
 import { TRPCError } from '@trpc/server';
@@ -15,7 +16,7 @@ export const gamePersistenceRouter = router({
   // Save a game
   saveGame: protectedProcedure
     .input(z.object({
-      pgn: z.string(),
+      pgn: pgnText,
       title: z.string(),
       notes: z.string().optional(),
       opening: z.string().optional(),
@@ -53,8 +54,8 @@ export const gamePersistenceRouter = router({
   // Get user's games
   getUserGames: protectedProcedure
     .input(z.object({
-      limit: z.number().default(50),
-      offset: z.number().default(0),
+      limit: pageSize,
+      offset: pageOffset,
     }))
     .query(async ({ input, ctx }) => {
       try {
@@ -82,7 +83,7 @@ export const gamePersistenceRouter = router({
   // Get single game
   getGame: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
     }))
     .query(async ({ input, ctx }) => {
       try {
@@ -116,7 +117,7 @@ export const gamePersistenceRouter = router({
   // Update game
   updateGame: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
       title: z.string().optional(),
       notes: z.string().optional(),
       result: z.enum(['1-0', '0-1', '1/2-1/2']).optional(),
@@ -153,7 +154,7 @@ export const gamePersistenceRouter = router({
   // Delete game
   deleteGame: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
     }))
     .mutation(async ({ input, ctx }) => {
       try {
@@ -178,7 +179,7 @@ export const gamePersistenceRouter = router({
   // Mark key position
   markKeyPosition: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
       fen: z.string(),
       moveNumber: z.number(),
       notes: z.string().optional(),
@@ -211,7 +212,7 @@ export const gamePersistenceRouter = router({
   // Get key positions for game
   getKeyPositions: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
+      gameId: positiveId,
     }))
     .query(async ({ input, ctx }) => {
       try {

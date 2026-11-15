@@ -1,3 +1,4 @@
+import { PGN_MAX_BYTES, PGN_MAX_PLIES, LIBRARY_MAX_BYTES, LIBRARY_MAX_GAMES } from "../shared/pgn-limits.ts";
 import { Chess } from "chess.js";
 import { positionAt } from "../shared/chess-position.ts";
 import { explainCandidate } from "../shared/coach-explanation.ts";
@@ -419,6 +420,10 @@ function downloadPGN() {
   download(buildPGN(), "partida.pgn");
 }
 function loadPGN(text) {
+  if (new TextEncoder().encode(text).length > PGN_MAX_BYTES) {
+    notice("PGN excede o limite de 60 KB por partida.");
+    return false;
+  }
   try {
     const g = ChessFromPgn(text);
     pausePreview();
@@ -442,7 +447,7 @@ function importBox() {
   if (loadPGN($("pgnbox").value)) tab(0);
 }
 $("onefile").onchange = async e => {
-  const f = e.target.files[0];
+  const f = readPgnFile(e.target);
   if (!f) return;
   try {
     const t = await f.text();
@@ -455,14 +460,32 @@ $("onefile").onchange = async e => {
   }
   e.target.value = "";
 };
+function readPgnFile(input) {
+  const file = input.files[0];
+  if (!file) return null;
+  if (!/\.pgn$/i.test(file.name) || file.size > LIBRARY_MAX_BYTES) {
+    notice("Selecione um arquivo .pgn de até 16 MB.");
+    input.value = "";
+    return null;
+  }
+  return file;
+}
+
 function buildDBFromText(text) {
   try {
     const parts = text
       .replace(/\r\n?/g, "\n")
       .split(/(?=^\[Event\s)/m)
       .filter(s => s.trim());
+    if (parts.length > LIBRARY_MAX_GAMES) {
+      notice("Importe até 20.000 partidas de cada vez.");
+      return;
+    }
     const next = parts.map(raw => {
+      if (new TextEncoder().encode(raw).length > PGN_MAX_BYTES) throw new Error("PGN too large");
       const g = ChessFromPgn(raw);
+      const history = g.history();
+      if (history.length > PGN_MAX_PLIES) throw new Error("PGN too many moves");
       const h = g.getHeaders();
       return {
         pgn: raw,
@@ -471,7 +494,7 @@ function buildDBFromText(text) {
         R: h.Result || "*",
         E: h.Event || "",
         O: h.Opening || h.ECO || "",
-        ...classify(g.history()),
+        ...classify(history),
         D: h.Date || h.UTCDate || "",
       };
     });
@@ -535,7 +558,7 @@ function renderDB(reset = true) {
   });
 }
 $("dbfile").onchange = async e => {
-  const f = e.target.files[0];
+  const f = readPgnFile(e.target);
   if (f)
     try {
       buildDBFromText(await f.text());

@@ -1,3 +1,4 @@
+import { PGN_MAX_BYTES } from '@shared/pgn-limits';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -109,6 +110,10 @@ export default function PGNImportExport({ onGameImported, gameId }: PGNImportExp
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (file && (!/\.pgn$/i.test(file.name) || file.size > PGN_MAX_BYTES)) {
+      toast.error("Selecione um arquivo .pgn de até 60 KB.");
+      return;
+    }
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -133,6 +138,10 @@ export default function PGNImportExport({ onGameImported, gameId }: PGNImportExp
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
+    if (file && (!/\.pgn$/i.test(file.name) || file.size > PGN_MAX_BYTES)) {
+      toast.error("Selecione um arquivo .pgn de até 60 KB.");
+      return;
+    }
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {

@@ -1,3 +1,4 @@
+import { pgnText, positiveId } from "../_core/api-input";
 import { z } from 'zod';
 import { protectedProcedure, router } from '../_core/trpc';
 import { getDb } from '../db';
@@ -18,7 +19,7 @@ export const pgnIORouter = router({
   importPGN: protectedProcedure
     .input(
       z.object({
-        pgnText: z.string().min(1, 'PGN não pode estar vazio'),
+        pgnText,
         title: z.string().optional(),
         notes: z.string().optional(),
       })
@@ -70,7 +71,7 @@ export const pgnIORouter = router({
   importMultiplePGNs: protectedProcedure
     .input(
       z.object({
-        fileContent: z.string().min(1, 'Arquivo não pode estar vazio'),
+        fileContent: z.string().min(1).max(250_000),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -137,7 +138,7 @@ export const pgnIORouter = router({
   exportGame: protectedProcedure
     .input(
       z.object({
-        gameId: z.number(),
+        gameId: positiveId,
         includeAnnotations: z.boolean().default(true),
       })
     )
@@ -188,7 +189,7 @@ export const pgnIORouter = router({
   exportMultipleGames: protectedProcedure
     .input(
       z.object({
-        gameIds: z.array(z.number()),
+        gameIds: z.array(positiveId).min(1).max(100),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -244,7 +245,7 @@ export const pgnIORouter = router({
   previewPGN: protectedProcedure
     .input(
       z.object({
-        pgnText: z.string().min(1, 'PGN não pode estar vazio'),
+        pgnText,
       })
     )
     .query(({ input }) => {
@@ -280,7 +281,7 @@ export const pgnIORouter = router({
   getPGNStats: protectedProcedure
     .input(
       z.object({
-        pgnText: z.string().min(1, 'PGN não pode estar vazio'),
+        pgnText,
       })
     )
     .query(({ input }) => {

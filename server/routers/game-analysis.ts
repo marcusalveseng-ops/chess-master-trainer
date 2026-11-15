@@ -1,3 +1,4 @@
+import { pgnText } from "../_core/api-input";
 import { z } from 'zod';
 import { protectedProcedure, publicProcedure, router } from '../_core/trpc';
 import { analyzeGame, generateGameCommentary, generatePhaseCommentary } from '../game-analysis';
@@ -8,7 +9,7 @@ export const gameAnalysisRouter = router({
   // Analyze a game and get phase breakdown
   analyzeGame: publicProcedure
     .input(z.object({
-      pgn: z.string(),
+      pgn: pgnText,
       playerColor: z.enum(['white', 'black']).optional(),
     }))
     .query(async ({ input }) => {
@@ -24,7 +25,7 @@ export const gameAnalysisRouter = router({
   // Generate commentary for a game
   generateCommentary: publicProcedure
     .input(z.object({
-      pgn: z.string(),
+      pgn: pgnText,
       playerColor: z.enum(['white', 'black']).optional(),
     }))
     .query(async ({ input }) => {
@@ -44,7 +45,7 @@ export const gameAnalysisRouter = router({
   // Generate AI-enhanced commentary using LLM
   generateAICommentary: aiProcedure
     .input(z.object({
-      pgn: z.string().max(32_768),
+      pgn: pgnText,
       playerColor: z.enum(['white', 'black']).optional(),
       includeStrategicAdvice: z.boolean().default(true),
     }))
@@ -97,7 +98,7 @@ Format your response in clear sections with markdown.`;
   // Get detailed phase analysis
   getPhaseAnalysis: publicProcedure
     .input(z.object({
-      pgn: z.string(),
+      pgn: pgnText,
       phase: z.enum(['opening', 'middlegame', 'endgame']),
     }))
     .query(async ({ input }) => {
@@ -124,8 +125,8 @@ Format your response in clear sections with markdown.`;
   // Save game analysis for a user
   saveGameAnalysis: protectedProcedure
     .input(z.object({
-      gameId: z.number(),
-      pgn: z.string(),
+      gameId: z.number().int().positive(),
+      pgn: pgnText,
       analysis: z.any(),
       commentary: z.string(),
     }))
@@ -160,7 +161,7 @@ Format your response in clear sections with markdown.`;
   // Generate recommendations based on analysis
   getRecommendations: publicProcedure
     .input(z.object({
-      pgn: z.string(),
+      pgn: pgnText,
       focusArea: z.enum(['opening', 'middlegame', 'endgame', 'all']).optional(),
     }))
     .query(async ({ input }) => {
