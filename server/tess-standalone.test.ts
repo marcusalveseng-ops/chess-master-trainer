@@ -121,6 +121,35 @@ describe('single-file Tess export',()=>{
       expect(a.errors).toEqual([]);
     } finally { a.close(); }
   });
+  it('keeps the existing library when import is cancelled', async () => {
+    const a = app();
+    try {
+      await a.dom.window.libraryReady;
+      const input = a.document.querySelector('#dbfile') as HTMLInputElement;
+      const button = a.document.querySelector('#cancel-library-import') as HTMLButtonElement;
+      const pgn = Array.from({length: 50}, (_, i) => '[Event "' + i + '"]\n\n1. e4 e5 *').join('\n\n');
+      Object.defineProperty(input, 'files', {
+        value: [{ name: 'test.pgn', size: pgn.length, text: async () => pgn }],
+      });
+      const started = new Promise<void>(resolve => {
+        const observer = new a.dom.window.MutationObserver(() => {
+          if (button.hidden) return;
+          observer.disconnect();
+          button.click();
+          resolve();
+        });
+        observer.observe(button, { attributes: true, attributeFilter: ['hidden'] });
+      });
+      input.dispatchEvent(new a.dom.window.Event('change'));
+      await started;
+      await new Promise(resolve => setTimeout(resolve, 20));
+      expect(button.hidden).toBe(true);
+      expect(a.document.querySelector('#notice')?.textContent).toContain('cancelada');
+      expect(a.document.querySelector('#dbcount')?.textContent).toBe('17831 de 17831 partidas');
+    } finally {
+      a.close();
+    }
+  });
   it('renders the board and expanded library without script errors',async()=>{
     const a=app();await a.dom.window.libraryReady;expect(a.errors).toEqual([]);expect(a.document.querySelectorAll('#board button')).toHaveLength(64);
     expect(Number(a.document.querySelector('#dbcount')?.textContent?.split(' ')[0])).toBeGreaterThan(10000);expect(a.document.querySelectorAll('#dblist button')).toHaveLength(50);a.close();

@@ -447,20 +447,24 @@ function loadPGN(text) {
 function importBox() {
   if (loadPGN($("pgnbox").value)) tab(0);
 }
-$("onefile").onchange = async e => {
-  const f = readPgnFile(e.target);
-  if (!f) return;
+let fileSelection = 0;
+async function importPgnFile(input, libraryOnly) {
+  const file = readPgnFile(input);
+  if (!file) return;
+  const selection = ++fileSelection;
+  libraryImport?.abort();
+  input.value = "";
   try {
-    const t = await f.text();
-    if ((t.match(/^\[Event\s/gm) || []).length > 1) {
-      buildDBFromText(t);
-      tab(1);
-    } else if (loadPGN(t)) tab(0);
+    const text = await file.text();
+    if (disposed || selection !== fileSelection) return;
+    if (libraryOnly || (text.match(/^\[Event\s/gm) || []).length > 1) {
+      if (await buildDBFromText(text)) tab(1);
+    } else if (loadPGN(text)) tab(0);
   } catch {
-    notice("Não foi possível ler o arquivo.");
+    if (!disposed && selection === fileSelection) notice("Não foi possível ler o arquivo.");
   }
-  e.target.value = "";
-};
+}
+$("onefile").onchange = event => void importPgnFile(event.currentTarget, false);
 function readPgnFile(input) {
   const file = input.files[0];
   if (!file) return null;
@@ -570,16 +574,7 @@ function renderDB(reset = true) {
     $("dblist").appendChild(d);
   });
 }
-$("dbfile").onchange = async e => {
-  const f = readPgnFile(e.target);
-  if (f)
-    try {
-      await buildDBFromText(await f.text());
-    } catch {
-      notice("Falha ao ler a biblioteca.");
-    }
-  e.target.value = "";
-};
+$("dbfile").onchange = event => void importPgnFile(event.currentTarget, true);
 function getSaved() {
   try {
     const saved = JSON.parse(localStorage.getItem("xsf_saved") || "[]");
