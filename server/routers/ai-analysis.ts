@@ -1,11 +1,12 @@
 import { z } from 'zod';
-import { protectedProcedure, router } from '../_core/trpc';
+import { router } from '../_core/trpc';
+import { aiProcedure } from '../_core/ai-procedure';
 import { invokeLLM } from '../_core/llm';
 import { TRPCError } from '@trpc/server';
 import { Chess } from 'chess.js';
 
 export const aiAnalysisRouter = router({
-  explainCandidates: protectedProcedure
+  explainCandidates: aiProcedure
     .input(z.object({ fen: z.string().max(120), lines: z.array(z.array(z.string().max(16)).min(1).max(6)).min(1).max(3) }))
     .mutation(async ({ input }) => {
       try {
@@ -28,7 +29,7 @@ export const aiAnalysisRouter = router({
       } catch { throw new TRPCError({ code: 'SERVICE_UNAVAILABLE', message: 'Explicação online indisponível. Use a análise local.' }); }
     }),
   // Get strategic tips for current position
-  getStrategicTips: protectedProcedure
+  getStrategicTips: aiProcedure
     .input(z.object({
       fen: z.string(),
       moveHistory: z.array(z.string()).optional(),
@@ -101,7 +102,7 @@ Format your response as a JSON object with these fields:
     }),
 
   // Generate commentary for a game move
-  generateMoveCommentary: protectedProcedure
+  generateMoveCommentary: aiProcedure
     .input(z.object({
       fen: z.string(),
       move: z.string(),
@@ -167,7 +168,7 @@ Format as JSON with field: commentary`;
     }),
 
   // Analyze game phases (opening, middlegame, endgame)
-  analyzeGamePhase: protectedProcedure
+  analyzeGamePhase: aiProcedure
     .input(z.object({
       pgn: z.string(),
       moveNumber: z.number(),
@@ -236,7 +237,7 @@ Format as JSON with fields:
     }),
 
   // Get opening recommendations
-  getOpeningRecommendations: protectedProcedure
+  getOpeningRecommendations: aiProcedure
     .input(z.object({
       opening: z.string(),
       eco: z.string().optional(),

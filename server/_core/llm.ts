@@ -381,7 +381,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  const resolvedMaxTokens = max_tokens ?? maxTokens;
+  const resolvedMaxTokens = Math.min(max_tokens ?? maxTokens ?? 800, 1200);
   if (typeof resolvedMaxTokens === "number") {
     payload.max_tokens = resolvedMaxTokens;
   }
@@ -405,7 +405,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   }
 
   const response = await fetchWithBackoff(resolveApiUrl(), {
-    signal: params.signal,
+    signal: params.signal ?? AbortSignal.timeout(15_000),
     method: "POST",
     headers: {
       "content-type": "application/json",

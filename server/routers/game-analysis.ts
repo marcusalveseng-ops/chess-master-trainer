@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { protectedProcedure, publicProcedure, router } from '../_core/trpc';
 import { analyzeGame, generateGameCommentary, generatePhaseCommentary } from '../game-analysis';
+import { aiProcedure } from '../_core/ai-procedure';
 import { invokeLLM } from '../_core/llm';
 
 export const gameAnalysisRouter = router({
@@ -41,9 +42,9 @@ export const gameAnalysisRouter = router({
     }),
 
   // Generate AI-enhanced commentary using LLM
-  generateAICommentary: publicProcedure
+  generateAICommentary: aiProcedure
     .input(z.object({
-      pgn: z.string(),
+      pgn: z.string().max(32_768),
       playerColor: z.enum(['white', 'black']).optional(),
       includeStrategicAdvice: z.boolean().default(true),
     }))
