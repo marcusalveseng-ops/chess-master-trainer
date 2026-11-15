@@ -11,7 +11,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
-    "build:tess": "node scripts/build-tess.mjs"
+    "build:tess": "node scripts/build-tess.mjs",
+    "release:tess": "node scripts/release-tess.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

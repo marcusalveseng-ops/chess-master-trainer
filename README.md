@@ -15,6 +15,13 @@ pnpm build:tess
 
 O resultado é `dist/tess/index.html`: um arquivo HTML para atualizar **a página existente na mesma conversa da Tess**, sem criar outra Tess Page. O GitHub não está configurado para publicar automaticamente na Tess. Fazer commit ou merge não comprova publicação.
 
+Para preparar a cópia de publicação com SHA-256, tamanho em bytes, versão de `package.json` e commit Git, execute `pnpm release:tess`. Esse comando executa o mesmo build e gera:
+
+- HTML para anexar: `dist/tess/release/Chess-Unificado-Tess.html`.
+- Manifesto para conferência: `dist/tess/release/manifest.json`.
+
+O HTML é uma cópia byte a byte de `dist/tess/index.html`. O manifesto fica separado do HTML e os dois são saídas locais ignoradas pelo Git. Veja [o procedimento de conferência e os caminhos absolutos](docs/RELEASE_TESS.md). A cópia manual `Chess-Unificado-Tess.html` na raiz não é atualizada por esses comandos.
+
 Essa versão executa no navegador: partidas contra o bot (brancas ou pretas), Stockfish 10.0.2 sob demanda, três variantes com explicações locais de vantagens/riscos, simulação de linhas, navegação, promoção e importação/exportação PGN. A biblioteca tem 17.831 partidas válidas, com filtros combinados de jogadores, abertura e defesa. Usa chess.js 1.4.0 e o motor local de apoio em `shared/chess-coach.ts`. Se o Stockfish não carregar, o bot e o assistente continuam com uma busca local limitada.
 
 Para treinar uma defesa, abra **Biblioteca**, selecione **Defesa**, abra uma partida e avance até a posição desejada. Escolha sua cor e clique em **Treinar desta posição**. Abrir PGNs entra em modo Estudo; **Nova partida** inicia contra o bot. Veja [comportamento, fontes e validação](docs/BOT_E_BIBLIOTECA_2026-11-05.md).

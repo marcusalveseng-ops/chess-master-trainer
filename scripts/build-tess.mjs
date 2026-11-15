@@ -1,8 +1,9 @@
 import fs from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 const root=new URL('../',import.meta.url);
 const library=await fs.readFile(new URL('standalone/library.gz.b64',root),'utf8');
-const bundle=await build({entryPoints:[new URL('standalone/app.js',root).pathname.replace(/^\/([A-Za-z]:)/,'$1')],bundle:true,write:false,format:'iife',minify:true,define:{__LIBRARY_GZIP__:JSON.stringify(library)},legalComments:'inline'});
+const bundle=await build({entryPoints:[fileURLToPath(new URL('standalone/app.js',root))],bundle:true,write:false,format:'iife',minify:true,define:{__LIBRARY_GZIP__:JSON.stringify(library)},legalComments:'inline'});
 let html=await fs.readFile(new URL('standalone/template.html',root),'utf8');
 const styles=await fs.readFile(new URL('standalone/style.css',root),'utf8');
 html=html.replace('<!-- STYLES -->',()=>`<style>${styles}</style>`);
