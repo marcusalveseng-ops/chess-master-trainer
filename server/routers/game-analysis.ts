@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { parsePGN } from "../pgn-utils";
 import { pgnText } from "../_core/api-input";
 import { z } from 'zod';
-import { protectedProcedure, publicProcedure, router } from '../_core/trpc';
+import { publicProcedure, router } from '../_core/trpc';
 import { analyzeGame, generateGameCommentary, generatePhaseCommentary } from '../game-analysis';
 import { aiProcedure } from '../_core/ai-procedure';
 import { invokeLLM } from '../_core/llm';
@@ -101,42 +101,6 @@ export const gameAnalysisRouter = router({
       } catch (error) {
 
         throw new Error('Failed to analyze phase');
-      }
-    }),
-
-  // Save game analysis for a user
-  saveGameAnalysis: protectedProcedure
-    .input(z.object({
-      gameId: z.number().int().positive(),
-      pgn: pgnText,
-      analysis: z.any(),
-      commentary: z.string(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      try {
-        // This would save to database
-        // For now, just return success
-        return {
-          success: true,
-          message: 'Game analysis saved'
-        };
-      } catch (error) {
-
-        throw new Error('Failed to save analysis');
-      }
-    }),
-
-  // Get saved analysis for a game
-  getGameAnalysis: protectedProcedure
-    .input(z.number())
-    .query(async ({ ctx, input }) => {
-      try {
-        // This would fetch from database
-        // For now, return empty
-        return null;
-      } catch (error) {
-
-        throw new Error('Failed to fetch analysis');
       }
     }),
 
