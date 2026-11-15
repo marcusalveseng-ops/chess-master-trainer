@@ -14,28 +14,27 @@
         ><span class="brand-piece" aria-hidden="true">♞</span
         ><span>Chess<b>Seu espaço de xadrez</b></span></a
       >
-      <nav class="main-nav" aria-label="Áreas do aplicativo">
-        <button class="active" data-panel="0" aria-current="page">
-          <span aria-hidden="true">♟</span>Jogar e analisar
+      <div class="main-nav" role="tablist" aria-label="Áreas do aplicativo" aria-orientation="vertical">
+        <button id="tab0" role="tab" aria-selected="true" aria-controls="p0">
+          <span aria-hidden="true">♟</span>Análise
         </button>
-        <button data-panel="1">
-          <span aria-hidden="true">▤</span>Biblioteca
+        <button id="tab1" role="tab" aria-selected="false" aria-controls="p1" aria-label="Partidas modelo" tabindex="-1">
+          <span aria-hidden="true">▤</span>Modelos
         </button>
-        <button data-panel="2">
-          <span aria-hidden="true">◷</span>Minhas partidas
+        <button id="tab2" role="tab" aria-selected="false" aria-controls="p2" tabindex="-1">
+          <span aria-hidden="true">◷</span>Salvas
         </button>
-        <button data-panel="3">
-          <span aria-hidden="true">⇅</span>Importar PGN
+        <button id="tab3" role="tab" aria-selected="false" aria-controls="p3" tabindex="-1">
+          <span aria-hidden="true">⇅</span>PGN
         </button>
-        <button data-panel="4">
+        <button id="tab4" role="tab" aria-selected="false" aria-controls="p4" tabindex="-1">
           <span aria-hidden="true">◎</span>Exercícios
         </button>
-      </nav>
+      </div>
       <div class="library-note">
         <span class="eyebrow">APRENDA COM OS MESTRES</span
         ><strong id="library-total">205 <small>partidas</small></strong>
         <p>Explore cada lance. Descubra novos planos.</p>
-        <button class="subtle" data-panel="1">Explorar biblioteca →</button>
       </div>
       <div class="sidebar-bottom">
         <span class="status-dot"></span> Seu treino, no seu navegador<small
@@ -197,52 +196,6 @@
               <h2 id="panel-title">Seu assistente de xadrez</h2>
               <p id="panel-subtitle">Veja possibilidades antes de decidir.</p>
             </div>
-          </div>
-          <div class="tabs" role="tablist" aria-label="Funções laterais" aria-orientation="vertical">
-            <button
-              class="on"
-              id="tab0"
-              role="tab"
-              aria-selected="true"
-              aria-controls="p0"
-              onclick="tab(0)"
-            >
-              <span class="tab-icon" aria-hidden="true">♞</span><span>Análise</span>
-            </button>
-            <button
-              id="tab1"
-              role="tab"
-              aria-selected="false"
-              aria-controls="p1"
-              tabindex="-1"
-              aria-label="Partidas modelo"
-              onclick="tab(1)"
-            >
-              <span class="tab-icon" aria-hidden="true">▤</span><span>Modelos</span>
-            </button>
-            <button
-              id="tab2"
-              role="tab"
-              aria-selected="false"
-              aria-controls="p2"
-              tabindex="-1"
-              onclick="tab(2)"
-            >
-              <span class="tab-icon" aria-hidden="true">◷</span><span>Salvas</span>
-            </button>
-            <button
-              id="tab3"
-              role="tab"
-              aria-selected="false"
-              aria-controls="p3"
-              tabindex="-1"
-              onclick="tab(3)"
-            >
-              <span class="tab-icon" aria-hidden="true">⇅</span><span>PGN</span>
-            </button>
-            <button id="tab4" role="tab" aria-selected="false" aria-controls="p4" tabindex="-1" onclick="tab(4)">
-              <span class="tab-icon" aria-hidden="true">◎</span><span>Exercícios</span>
-            </button>
           </div>
           <section
             class="panel on"
@@ -436,13 +389,18 @@
             <select id="exercise-stage"><option value="">Todas as fases</option></select>
             <label class="field-label" for="exercise-theme">Tipo de problema</label>
             <select id="exercise-theme"><option value="">Todos os tipos</option></select>
-            <label class="field-label" for="exercise-level">Dificuldade</label>
+            <label class="field-label" for="exercise-origin">Origem ou autor</label>
+            <select id="exercise-origin">
+              <option value="">Todas as origens</option>
+              <option value="classic">Estudos clássicos</option>
+              <option value="lichess">Lichess</option>
+            </select>
+            <label class="field-label" for="exercise-level">Dificuldade (Lichess)</label>
             <select id="exercise-level">
               <option value="">Todas</option>
               <option value="intro">Até 1299</option>
               <option value="intermediate">1300–1799</option>
               <option value="advanced">1800 ou mais</option>
-              <option value="classic">Estudos clássicos</option>
             </select>
             <p id="exercise-count" class="help-text" role="status"></p>
             <a class="exercise-board-link" href="#exercise-title">Ir para o tabuleiro ↑</a>
@@ -460,7 +418,9 @@
               <summary>Fontes e leituras</summary>
               <p>Problemas de partidas reais: <a href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener">base aberta do Lichess (CC0)</a>.</p>
               <p><a href="https://www.gutenberg.org/ebooks/33870" target="_blank" rel="noopener"><i>Chess Fundamentals</i>, de Capablanca</a>: controle do centro e mates elementares. <a href="https://commons.wikimedia.org/wiki/File:Chess_fundamentals_(IA_chessfundamental00capa).pdf" target="_blank" rel="noopener">Edição digitalizada em PDF</a>.</p>
-              <p><a href="https://commons.wikimedia.org/wiki/File:Common_sense_in_chess_(IA_commonsenseinche00laskrich).pdf" target="_blank" rel="noopener"><i>Common Sense in Chess</i>, de Emanuel Lasker (PDF)</a>: leitura complementar sobre abertura, ataque e defesa.</p>
+              <p><a href="https://commons.wikimedia.org/wiki/File:Common_sense_in_chess_(IA_commonsenseinche00laskrich).pdf" target="_blank" rel="noopener"><i>Common Sense in Chess</i>, de Emanuel Lasker (PDF)</a>: desenvolvimento e ataque ao rei.</p>
+              <p><a href="https://www.gutenberg.org/ebooks/4913" target="_blank" rel="noopener"><i>Chess and Checkers: The Way to Mastership</i>, de Edward Lasker</a>: táticas, xeque perpétuo e peões passados.</p>
+              <p><a href="https://www.arves.org/arves/images/PDF/JohnBeasley/reti1.pdf" target="_blank" rel="noopener">Estudos de peões de Richard Réti (PDF)</a>: finais sobre corridas de promoção e recursos de empate.</p>
             </details>
           </section>
         </aside>

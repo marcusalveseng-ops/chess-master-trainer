@@ -105,19 +105,13 @@ function posAt(n) {
   return record(n);
 }
 let exercisesReady = false;
+const functionTabs = document.querySelectorAll(".main-nav [role=tab]");
 function tab(i) {
   if (i !== 0) pausePreview();
   if (i !== 1) playerSuggestions.forEach(suggestions => suggestions.close());
-  document.querySelectorAll(".tabs button").forEach((b, k) => {
-    b.classList.toggle("on", k === i);
+  functionTabs.forEach((b, k) => {
     b.setAttribute("aria-selected", String(k === i));
     b.tabIndex = k === i ? 0 : -1;
-  });
-  document.querySelectorAll(".main-nav button").forEach(b => {
-    const active = Number(b.dataset.panel) === i;
-    b.classList.toggle("active", active);
-    if (active) b.setAttribute("aria-current", "page");
-    else b.removeAttribute("aria-current");
   });
   document.querySelectorAll(".analysis-panel .panel").forEach((panel, k) => {
     panel.classList.toggle("on", k === i);
@@ -143,9 +137,6 @@ function tab(i) {
     "Leve suas partidas para onde quiser.",
     "Treine por fase e tipo de problema.",
   ][i];
-}
-function tabTo(i) {
-  document.querySelectorAll(".tabs button")[i].click();
 }
 function pieceImage(piece) {
   const img = document.createElement("img");
@@ -422,7 +413,7 @@ function download(text, name) {
 }
 function exportPGN() {
   $("pgnbox").value = buildPGN();
-  tabTo(3);
+  tab(3);
 }
 function downloadPGN() {
   download(buildPGN(), "partida.pgn");
@@ -448,7 +439,7 @@ function loadPGN(text) {
   }
 }
 function importBox() {
-  if (loadPGN($("pgnbox").value)) tabTo(0);
+  if (loadPGN($("pgnbox").value)) tab(0);
 }
 $("onefile").onchange = async e => {
   const f = e.target.files[0];
@@ -457,8 +448,8 @@ $("onefile").onchange = async e => {
     const t = await f.text();
     if ((t.match(/^\[Event\s/gm) || []).length > 1) {
       buildDBFromText(t);
-      tabTo(1);
-    } else if (loadPGN(t)) tabTo(0);
+      tab(1);
+    } else if (loadPGN(t)) tab(0);
   } catch {
     notice("Não foi possível ler o arquivo.");
   }
@@ -538,7 +529,7 @@ function renderDB(reset = true) {
       .join(" · ");
     d.appendChild(meta);
     d.onclick = () => {
-      if (loadPGN(g.pgn)) tabTo(0);
+      if (loadPGN(g.pgn)) tab(0);
     };
     $("dblist").appendChild(d);
   });
@@ -586,7 +577,7 @@ function saveGame() {
   const a = getSaved();
   a.unshift({ name, date: new Date().toISOString(), pgn: record().pgn() });
   if (setSaved(a)) {
-    tabTo(2);
+    tab(2);
     notice("Partida completa salva neste navegador.");
   }
 }
@@ -614,7 +605,7 @@ function renderSaved() {
     const load = document.createElement("button");
     load.textContent = "Carregar";
     load.onclick = () => {
-      if (loadPGN(g.pgn)) tabTo(0);
+      if (loadPGN(g.pgn)) tab(0);
     };
     const del = document.createElement("button");
     del.textContent = "Excluir";
@@ -886,17 +877,21 @@ $("depthSel").onchange = () => updateAnalysis(true);
 function analyze() {
   updateAnalysis(true);
 }
-document.querySelectorAll("[data-panel]").forEach(button =>
+const compactNav = window.matchMedia?.("(max-width: 900px)");
+const syncNavOrientation = () =>
+  document.querySelector(".main-nav").setAttribute("aria-orientation", compactNav?.matches ? "horizontal" : "vertical");
+syncNavOrientation();
+compactNav?.addEventListener?.("change", syncNavOrientation);
+functionTabs.forEach((button, index) => {
   button.addEventListener("click", () => {
-    tab(Number(button.dataset.panel));
-    if (window.matchMedia?.("(max-width: 720px)").matches)
-      $("panel-title").scrollIntoView({ block: "start" });
-  })
-);
-const functionTabs = document.querySelectorAll('.tabs [role="tab"]');
-functionTabs.forEach((button, index) =>
+    tab(index);
+    if (window.matchMedia?.("(max-width: 720px)").matches) {
+      $(index === 0 ? "main-game" : index === 4 ? "exercise-area" : "panel-title").scrollIntoView({ block: "start" });
+    }
+  });
   button.addEventListener("keydown", e => {
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return;
+    const [previous, following] = compactNav?.matches ? ["ArrowLeft", "ArrowRight"] : ["ArrowUp", "ArrowDown"];
+    if (![previous, following, "Home", "End"].includes(e.key)) return;
     e.preventDefault();
     e.stopPropagation();
     const next =
@@ -904,11 +899,11 @@ functionTabs.forEach((button, index) =>
         ? 0
         : e.key === "End"
           ? functionTabs.length - 1
-          : (index + (["ArrowRight", "ArrowDown"].includes(e.key) ? 1 : functionTabs.length - 1)) % functionTabs.length;
+          : (index + (e.key === following ? 1 : functionTabs.length - 1)) % functionTabs.length;
     tab(next);
     $("tab" + next).focus();
-  })
-);
+  });
+});
 Object.assign(window, {
   go,
   goBack,
@@ -930,7 +925,7 @@ $("autoA").onchange = () => {
   updateAnalysis();
 };
 document.addEventListener("keydown", e => {
-  if (!$("exercise-area").hidden || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (!$("exercise-area").hidden || e.target.matches?.('[role="tab"], input, textarea, select')) return;
   if (e.key === "ArrowLeft") {
     e.preventDefault();
     goBack();

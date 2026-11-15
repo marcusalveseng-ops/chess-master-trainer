@@ -11,6 +11,7 @@ export const exerciseThemes = {
   hangingPiece: "Peça indefesa",
   deflection: "Desvio",
   development: "Centro e desenvolvimento",
+  draw: "Empate",
   advantage: "Ganho de vantagem",
 };
 

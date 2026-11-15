@@ -5,7 +5,7 @@ import { JSDOM, VirtualConsole } from 'jsdom';
 import { Chess } from 'chess.js';
 import { StockfishCoach, createInlineStockfish } from '../standalone/engine.js';
 import puzzles from '../standalone/exercises.json';
-import { classicalExercises } from '../standalone/exercises.js';
+import { classicalAuthors, classicalExercises } from '../standalone/exercise-classics.js';
 import { exerciseStages, moveUci } from '../standalone/exercise-rules.js';
 let html: string;
 beforeAll(() => { execFileSync(process.execPath, ['scripts/build-tess.mjs']); html=readFileSync('dist/tess/index.html','utf8'); });
@@ -49,7 +49,7 @@ describe('single-file Tess export',()=>{
     }finally{a.close();}
   });
   it('switches navigation panels and exposes coordinates',()=>{
-    const a=app();a.click('.main-nav [data-panel="1"]');expect(a.document.querySelector('#p1')?.hasAttribute('hidden')).toBe(false);
+    const a=app();a.click('.main-nav #tab1');expect(a.document.querySelector('#p1')?.hasAttribute('hidden')).toBe(false);
     expect(a.document.querySelector('#tab1')?.getAttribute('aria-selected')).toBe('true');
     expect(a.document.querySelectorAll('#board .coord')).toHaveLength(16);a.close();
   });
@@ -65,7 +65,9 @@ describe('single-file Tess export',()=>{
       a.click('#tab1');
       expect(library.scrollTop).toBe(120);
       expect(a.document.querySelector('#panel-title')?.textContent).toBe('Partidas modelo');
-      expect(a.document.querySelector('.tabs')?.getAttribute('aria-orientation')).toBe('vertical');
+      expect(a.document.querySelectorAll('[role="tablist"]')).toHaveLength(1);
+      expect(a.document.querySelector('.sidebar [role="tablist"]')?.getAttribute('aria-orientation')).toBe('vertical');
+      expect(a.document.querySelectorAll('.sidebar [role="tab"]')).toHaveLength(5);
     }finally{a.close();}
   });
   it('selects suggested player names by keyboard and click while combining model-game filters',async()=>{
@@ -146,6 +148,10 @@ describe('exercise repertoire',()=>{
       expect(phasePuzzles.filter(puzzle=>puzzle.rating<1300)).toHaveLength(15);
       expect(phasePuzzles.filter(puzzle=>puzzle.rating>=1800)).toHaveLength(15);
     }
+    expect(classicalExercises).toHaveLength(18);
+    for(const author of Object.keys(classicalAuthors)){
+      expect(classicalExercises.filter(puzzle=>puzzle.author===author).length).toBeGreaterThanOrEqual(3);
+    }
     for(const puzzle of [...puzzles,...classicalExercises]){
       const board=new Chess(puzzle.fen);
       expect(puzzle.moves.length%2).toBe(1);
@@ -165,12 +171,18 @@ describe('exercise repertoire',()=>{
       const square=(s:string)=>a.click(`#exercise-board [data-square="${s}"]`);
       const content=(s:string)=>a.document.querySelector(s)?.textContent;
       a.click('#tab4');
-      expect(content('#exercise-count')).toBe('1 de 138 exercícios');
+      expect(content('#exercise-count')).toBe('1 de 153 exercícios');
       expect(a.document.querySelector('#main-game')?.hasAttribute('hidden')).toBe(true);
       choose('stage','endgame');choose('theme','development');
       expect(content('#exercise-count')).toBe('0 exercícios');
       expect(a.document.querySelector('#exercise-board')?.hasAttribute('hidden')).toBe(true);
-      choose('stage','opening');choose('level','classic');
+      choose('theme','draw');choose('origin','reti');
+      expect(content('#exercise-count')).toBe('1 de 3 exercícios');
+      expect(content('#exercise-source')).toContain('Richard Réti');
+      expect((a.document.querySelector('#exercise-level') as HTMLSelectElement).disabled).toBe(true);
+      a.click('#exercise-next');
+      expect(content('#exercise-source')).toContain('1.2');
+      choose('stage','opening');choose('theme','development');choose('origin','capablanca');
       expect(content('#exercise-count')).toBe('1 de 1 exercícios');
       square('a2');square('a3');
       expect(content('#exercise-feedback')).toContain('é legal, mas não segue');

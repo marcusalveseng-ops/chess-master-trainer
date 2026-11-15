@@ -1,42 +1,18 @@
 import { Chess } from "chess.js";
 import puzzles from "./exercises.json";
 import { exerciseStages, exerciseThemes, matchesExercise, moveUci } from "./exercise-rules.js";
-
-const book = "https://www.gutenberg.org/files/33870/33870-h/33870-h.htm";
-export const classicalExercises = [
-  {
-    id: "capablanca-center", stage: "opening", themes: ["development"],
-    fen: "rnbqkbnr/ppp2ppp/3p4/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3",
-    moves: ["d2d4", "b8d7", "f1c4"],
-    goal: "Na linha de Capablanca, dispute o centro com um peão e depois desenvolva um bispo para atacar f7.",
-    lesson: "d4 pressiona e5 e abre a diagonal do bispo de c1. Depois de ...Nd7, Bc4 desenvolve a peça com pressão sobre f7.",
-    source: "Capablanca · Controle do centro, exemplo 18",
-  },
-  {
-    id: "capablanca-rook", stage: "endgame", themes: ["mate"],
-    fen: "7k/8/6K1/8/8/8/8/R7 w - - 0 1", moves: ["a1a8"],
-    goal: "Dê mate em um lance com rei e torre.",
-    lesson: "O rei branco tira g7 e h7. Na oitava fileira, a torre dá xeque e também cobre g8.",
-    source: "Posição original inspirada em Capablanca · Rei e torre",
-  },
-  {
-    id: "capablanca-queen", stage: "endgame", themes: ["mate"],
-    fen: "k7/8/1K6/8/8/8/4Q3/8 w - - 0 1", moves: ["e2e8"],
-    goal: "Dê mate em um lance com rei e dama.",
-    lesson: "O rei branco tira a7 e b7. A dama fecha a oitava fileira, incluindo b8.",
-    source: "Posição original inspirada em Capablanca · Rei e dama",
-  },
-];
+import { classicalAuthors, classicalExercises } from "./exercise-classics.js";
 
 export function setupExercises(pieceImage, pieceNames) {
   const $ = id => document.getElementById("exercise-" + id);
-  const board = $("board"), stage = $("stage"), theme = $("theme"), level = $("level");
+  const board = $("board"), stage = $("stage"), theme = $("theme"), level = $("level"), origin = $("origin");
   const feedback = $("feedback"), solution = $("solution"), promotion = $("promotion");
   const source = $("source"), hint = $("hint"), reveal = $("reveal"), reset = $("reset"), next = $("next");
   const all = [...classicalExercises, ...puzzles];
   for (const [select, labels] of [[stage, exerciseStages], [theme, exerciseThemes]]) {
     for (const [value, label] of Object.entries(labels)) select.add(new Option(label, value));
   }
+  for (const [value, author] of Object.entries(classicalAuthors)) origin.add(new Option(author.name, value));
 
   let filtered, index, exercise, game, side, cursor, selected, pending, done;
   const files = "abcdefgh";
@@ -108,8 +84,9 @@ export function setupExercises(pieceImage, pieceNames) {
       : "";
     source.hidden = !exercise;
     if (exercise) {
-      source.href = exercise.source ? book : `https://lichess.org/training/${exercise.id}`;
-      source.textContent = exercise.source || "Ver exercício no Lichess";
+      const author = classicalAuthors[exercise.author];
+      source.href = author?.url || `https://lichess.org/training/${exercise.id}`;
+      source.textContent = author ? `${author.name} · ${exercise.reference}` : "Ver exercício no Lichess";
     }
     message(exercise ? "Selecione uma peça e depois a casa de destino." : "Nenhum exercício com esses filtros. Experimente outra combinação.");
     solution.textContent = "";
@@ -117,9 +94,19 @@ export function setupExercises(pieceImage, pieceNames) {
   }
 
   function filter() {
-    filtered = all.filter(item => matchesExercise(item, stage.value, theme.value) && (
-      !level.value || level.value === (item.rating == null ? "classic" : item.rating < 1300 ? "intro" : item.rating < 1800 ? "intermediate" : "advanced")
-    ));
+    const origins = origin.value;
+    const classicOnly = origins && origins !== "lichess";
+    level.disabled = !!classicOnly;
+    if (classicOnly) level.value = "";
+    filtered = all.filter(item => {
+      if (!matchesExercise(item, stage.value, theme.value)) return false;
+      if (origins === "classic" && !item.author) return false;
+      if (origins === "lichess" && item.author) return false;
+      if (origins && origins !== "classic" && origins !== "lichess" && item.author !== origins) return false;
+      if (!level.value) return true;
+      if (item.rating == null) return false;
+      return level.value === (item.rating < 1300 ? "intro" : item.rating < 1800 ? "intermediate" : "advanced");
+    });
     index = 0;
     start();
   }
@@ -168,7 +155,7 @@ export function setupExercises(pieceImage, pieceNames) {
     render();
   }
 
-  for (const select of [stage, theme, level]) select.onchange = filter;
+  for (const select of [stage, theme, level, origin]) select.onchange = filter;
   next.onclick = () => { index = (index + 1) % filtered.length; start(); };
   reset.onclick = start;
   hint.onclick = () => {
