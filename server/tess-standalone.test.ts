@@ -89,6 +89,80 @@ describe('single-file Tess export',()=>{
     a.dom.window.exportPGN();expect((a.document.querySelector('#pgnbox') as HTMLTextAreaElement).value).toContain('1. e4');a.close();
   });
 });
+describe('variant playback',()=>{
+  async function readyVariants() {
+    const a=app();
+    (a.document.querySelector('#pgnbox') as HTMLTextAreaElement).value=
+      '[SetUp "1"]\n[FEN "4k3/4p3/8/8/8/8/4P3/4K3 w - - 0 1"]\n\n*';
+    a.dom.window.importBox();
+    await vi.waitFor(()=>expect(a.document.querySelectorAll('.animate-variant')).toHaveLength(2),{timeout:3000});
+    return a;
+  }
+  it('animates the top two lines on demand, pauses, seeks, repeats and preserves the main game',async()=>{
+    const a=await readyVariants();
+    try {
+      const saved=a.dom.window.localStorage.getItem('xsf_current');
+      expect(a.document.querySelector('#preview-playback')?.hasAttribute('hidden')).toBe(true);
+      vi.useFakeTimers();
+      a.click('.animate-variant');
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      expect(a.document.querySelector('#preview-toggle')?.textContent).toContain('Pausar');
+      vi.advanceTimersByTime(1100);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('1/2');
+      a.click('#preview-toggle');
+      const pausedBoard=a.document.querySelector('#board')!.innerHTML;
+      vi.advanceTimersByTime(3300);
+      expect(a.document.querySelector('#board')!.innerHTML).toBe(pausedBoard);
+      a.click('#next-move');
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('2/2');
+      expect(a.document.querySelector('#preview-toggle')?.textContent).toContain('Repetir');
+      a.click('#preview-toggle');
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      vi.advanceTimersByTime(1100);
+      a.click('#previous-move');
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      expect(a.document.querySelector('#preview-toggle')?.textContent).toContain('Reproduzir');
+      a.click('#preview-toggle');
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('Concluída');
+      a.click('#preview-restart');
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      a.click('#return-main');
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#preview-playback')?.hasAttribute('hidden')).toBe(true);
+      expect(a.document.querySelector('#status')?.textContent).toContain('lance 0/0');
+      expect(a.dom.window.localStorage.getItem('xsf_current')).toBe(saved);
+      expect(a.errors).toEqual([]);
+    } finally {a.close();vi.useRealTimers();}
+  });
+  it('cancels playback when switching lines, starting a game or leaving the page',async()=>{
+    const a=await readyVariants();
+    try {
+      vi.useFakeTimers();
+      a.click('.animate-variant');
+      vi.advanceTimersByTime(550);
+      (a.document.querySelectorAll('.animate-variant')[1] as HTMLElement).click();
+      expect(a.document.querySelector('#preview-label')?.textContent).toContain('Variante 2:');
+      vi.advanceTimersByTime(550);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/2');
+      vi.advanceTimersByTime(550);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('1/2');
+      a.dom.window.newGame();
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#status')?.textContent).toContain('lance 0/0');
+      expect(a.document.querySelector('#preview-playback')?.hasAttribute('hidden')).toBe(true);
+      a.dom.window.go(0);
+      vi.advanceTimersByTime(500);
+      a.click('.animate-variant');
+      a.dom.window.dispatchEvent(new a.dom.window.Event('pagehide'));
+      vi.advanceTimersByTime(2200);
+      expect(a.document.querySelector('#preview-progress')?.textContent).toContain('0/');
+      expect(a.document.querySelector('#preview-toggle')?.textContent).toContain('Reproduzir');
+    } finally {a.close();vi.useRealTimers();}
+  });
+});
+
 describe('Stockfish search synchronization',()=>{
   function engine(){const result=vi.fn();const coach=new StockfishCoach(result,vi.fn());coach.worker={postMessage:vi.fn(),terminate:vi.fn()};coach.ready=true;return {coach,result};}
   const position=(key:string)=>({key,fen:key,history:{startFen:key,moves:[]},depth:12,expected:1});

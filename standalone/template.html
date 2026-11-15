@@ -82,6 +82,15 @@
       </div>
       <div class="workspace">
         <section class="game-area" aria-label="Partida de xadrez">
+          <section id="preview-playback" class="preview-playback" aria-label="Reprodução da variante" hidden>
+            <strong id="preview-label"></strong>
+            <span id="preview-progress" role="status"></span>
+            <div class="row">
+              <button id="preview-toggle" class="pri">▶ Reproduzir</button>
+              <button id="preview-restart">↺ Início</button>
+            </div>
+            <small>Use as setas do tabuleiro para explorar lance a lance. A partida original está preservada.</small>
+          </section>
           <div class="player-row" id="player-top">
             <span class="avatar" aria-hidden="true">♚</span>
             <div class="player-info">
@@ -256,8 +265,9 @@
               Analisar esta posição
             </button>
             <p class="help-text">
-              Valor positivo favorece quem tem a vez. Explore uma variante com
-              as setas e depois retorne à sua partida. As linhas são
+              Valor positivo favorece quem tem a vez. Nas duas primeiras sugestões,
+              use “Animar variante” para reproduzir e pausar no tabuleiro.
+              Você também pode explorar com as setas e depois retornar à partida. As linhas são
               possibilidades, não garantias.
             </p>
           </section>

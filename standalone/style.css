@@ -487,6 +487,37 @@ h1 {
 #return-main {
   margin: 10px 0 10px 24px;
 }
+.preview-playback {
+  position: sticky;
+  top: 8px;
+  z-index: 4;
+  margin: 0 0 12px 24px;
+  padding: 12px;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  background: var(--inset);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.preview-playback strong,
+#preview-progress {
+  grid-column: 1;
+}
+.preview-playback small {
+  grid-column: 1 / -1;
+}
+.preview-playback small,
+#preview-progress {
+  color: var(--muted);
+  font-size: 12px;
+}
+.preview-playback .row {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  flex-wrap: wrap;
+}
 #promotion {
   margin: 10px 0 10px 24px;
   background: var(--inset);

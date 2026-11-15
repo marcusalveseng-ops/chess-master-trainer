@@ -28,6 +28,8 @@ let headers = {
   Event: "Partida casual",
 };
 let preview = null,
+  previewTimer = null,
+  previewAnimations = [],
   analysisKey = "",
   timer = null,
   currentOrigin = "",
@@ -100,6 +102,7 @@ function posAt(n) {
   return record(n);
 }
 function tab(i) {
+  if (i !== 0) pausePreview();
   document.querySelectorAll(".tabs button").forEach((b, k) => {
     b.classList.toggle("on", k === i);
     b.setAttribute("aria-selected", String(k === i));
@@ -239,6 +242,7 @@ function render() {
       ? "Explorando variante " + preview.ply + "/" + preview.total
       : "lance " + ply + "/" + moves.length);
   $("return-main").hidden = !preview;
+  updatePreviewControls();
   $("train-position").disabled = !!preview;
   renderPlayers(c);
   const shownPly = preview ? preview.ply : ply,
@@ -340,6 +344,7 @@ function playMove(to, promotion = "q") {
   }
 }
 function go(n) {
+  pausePreview();
   bot.cancel();
   if (preview) preview.ply = Math.max(0, Math.min(preview.total, n));
   else ply = Math.max(0, Math.min(moves.length, n));
@@ -356,6 +361,7 @@ function goEnd() {
   go(preview ? preview.total : moves.length);
 }
 function flipBoard() {
+  pausePreview();
   flipped = !flipped;
   render();
 }
@@ -369,6 +375,7 @@ function newGame() {
     return;
   bot.cancel();
   engine.stop();
+  pausePreview();
   analysisKey = "";
   gameMode = "bot";
   humanColor = $("human-color").value;
@@ -410,6 +417,7 @@ function downloadPGN() {
 function loadPGN(text) {
   try {
     const g = ChessFromPgn(text);
+    pausePreview();
     bot.cancel();
     gameMode = "study";
     moves = g.history();
@@ -762,21 +770,98 @@ function showCandidates(fen, candidates, depth, origin) {
     article.appendChild(details);
     const b = document.createElement("button");
     b.textContent = "Explorar variante " + c.san;
-    b.onclick = () => {
-      const branch = new Chess(fen);
-      c.line.forEach(san => branch.move(san));
-      preview = { pgn: branch.pgn(), ply: 0, total: c.line.length };
-      clearTimeout(timer);
-      bot.cancel();
-      engine.stop();
-      selected = null;
-      render();
-    };
+    b.onclick = () => openPreview(fen, c, index);
     article.appendChild(b);
+    if (index < 2) {
+      const animate = document.createElement("button");
+      animate.className = "animate-variant";
+      animate.textContent = "▶ Animar variante " + c.san;
+      animate.onclick = () => {
+        openPreview(fen, c, index);
+        playPreview();
+        $("preview-playback").scrollIntoView?.({ block: "nearest" });
+      };
+      article.appendChild(animate);
+    }
     $("coach").appendChild(article);
   });
 }
+function openPreview(fen, candidate, index) {
+  pausePreview();
+  const branch = new Chess(fen);
+  candidate.line.forEach(san => branch.move(san));
+  preview = {
+    pgn: branch.pgn(), ply: 0, total: candidate.line.length,
+    label: "Variante " + (index + 1) + ": " + candidate.san,
+    canAnimate: index < 2,
+  };
+  clearTimeout(timer);
+  bot.cancel();
+  engine.stop();
+  selected = null;
+  render();
+}
+function updatePreviewControls() {
+  $("preview-playback").hidden = !preview?.canAnimate;
+  if (!preview?.canAnimate) return;
+  const playing = previewTimer !== null;
+  $("preview-label").textContent = preview.label;
+  $("preview-progress").textContent =
+    preview.ply + "/" + preview.total + " meios-lances · " +
+    (playing ? "Reproduzindo" : preview.ply === preview.total ? "Concluída" : "Pausada");
+  $("preview-toggle").textContent = playing ? "⏸ Pausar" :
+    preview.ply === preview.total ? "↻ Repetir" : "▶ Reproduzir";
+}
+function pausePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = null;
+  previewAnimations.forEach(animation => animation.cancel());
+  previewAnimations = [];
+  updatePreviewControls();
+}
+function animatePreviewMove() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  const last = cur().history({ verbose: true }).at(-1);
+  if (!last) return;
+  const paths = [[last.from, last.to]];
+  if (last.flags.includes("k")) paths.push(["h" + last.from[1], "f" + last.from[1]]);
+  if (last.flags.includes("q")) paths.push(["a" + last.from[1], "d" + last.from[1]]);
+  const size = $("board").getBoundingClientRect().width / 8;
+  const direction = flipped ? -1 : 1;
+  previewAnimations = paths.flatMap(([from, to]) => {
+    const image = $("board").querySelector(`[aria-label="${to}"] img`);
+    if (!image?.animate) return [];
+    image.style.zIndex = "3";
+    const x = (from.charCodeAt(0) - to.charCodeAt(0)) * size * direction;
+    const y = (Number(to[1]) - Number(from[1])) * size * direction;
+    return [image.animate([
+      { transform: `translate(${x}px, ${y}px)` }, { transform: "translate(0, 0)" },
+    ], { duration: 350, easing: "ease-in-out" })];
+  });
+}
+function playPreview() {
+  if (!preview?.canAnimate || disposed) return;
+  pausePreview();
+  if (preview.ply === preview.total) {
+    preview.ply = 0;
+    render();
+  }
+  const advance = () => {
+    previewTimer = null;
+    if (!preview || disposed) return;
+    preview.ply++;
+    render();
+    animatePreviewMove();
+    if (preview.ply < preview.total) previewTimer = setTimeout(advance, 1100);
+    updatePreviewControls();
+  };
+  previewTimer = setTimeout(advance, 1100);
+  updatePreviewControls();
+}
+$("preview-toggle").onclick = () => previewTimer !== null ? pausePreview() : playPreview();
+$("preview-restart").onclick = () => go(0);
 $("return-main").onclick = () => {
+  pausePreview();
   preview = null;
   selected = null;
   render();
@@ -857,6 +942,7 @@ try {
   /* Empty or invalid old autosave; explicit saved games remain unchanged. */
 }
 $("game-mode").onchange = () => {
+  pausePreview();
   bot.cancel();
   engine.stop();
   gameMode = $("game-mode").value;
@@ -864,6 +950,7 @@ $("game-mode").onchange = () => {
   render();
 };
 $("human-color").onchange = () => {
+  pausePreview();
   bot.cancel();
   engine.stop();
   humanColor = $("human-color").value;
@@ -942,7 +1029,11 @@ $("train-position").onclick = () => {
 engine.init();
 window.addEventListener("pagehide", () => {
   disposed = true;
+  pausePreview();
   clearTimeout(timer);
   bot.cancel();
   engine.dispose();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pausePreview();
 });
