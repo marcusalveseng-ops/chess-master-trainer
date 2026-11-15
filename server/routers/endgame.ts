@@ -1,4 +1,6 @@
-import { pgnText } from "../_core/api-input";
+import { pgnText, positiveId } from "../_core/api-input";
+import { TRPCError } from "@trpc/server";
+import { gradeEndgameAttempt } from "../endgame-attempt";
 import { z } from 'zod';
 import { protectedProcedure, publicProcedure, router } from '../_core/trpc';
 import { getDb } from '../db';
@@ -47,7 +49,7 @@ export const endgameRouter = router({
 
   // Get challenge details with position
   getChallengeDetails: protectedProcedure
-    .input(z.number())
+    .input(positiveId)
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error('Database not available');
@@ -72,12 +74,15 @@ export const endgameRouter = router({
 
   // Create a new challenge for a position
   createChallenge: protectedProcedure
-    .input(z.number())
+    .input(positiveId)
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error('Database not available');
 
-      const result = await db.insert(endgameChallenges).values({
+      const [position] = await db.select({ id: endgamePositions.id }).from(endgamePositions)
+        .where(eq(endgamePositions.id, input)).limit(1);
+      if (!position) throw new TRPCError({ code: "NOT_FOUND", message: "Posição não encontrada." });
+      const [result] = await db.insert(endgameChallenges).values({
         userId: ctx.user.id,
         endgamePositionId: input,
         attempts: 0,
@@ -85,75 +90,48 @@ export const endgameRouter = router({
         solved: false,
       });
 
-      return { challengeId: (result as any).insertId || 0 };
+      return { challengeId: result.insertId };
     }),
 
-  // Record an attempt
   recordAttempt: protectedProcedure
-    .input(
-      z.object({
-        challengeId: z.number(),
-        pgn: pgnText,
-        result: z.enum(['win', 'loss', 'draw', 'incomplete']),
-        movesPlayed: z.number(),
-        score: z.number(),
-        analysis: z.string().optional(),
-      })
-    )
+    .input(z.object({ challengeId: positiveId, pgn: pgnText }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
-      if (!db) throw new Error('Database not available');
+      if (!db) throw new Error("Database not available");
 
-      // Verify challenge belongs to user
-      const challenge = await db
-        .select()
-        .from(endgameChallenges)
-        .where(
-          and(
-            eq(endgameChallenges.id, input.challengeId),
-            eq(endgameChallenges.userId, ctx.user.id)
-          )
-        );
+      return db.transaction(async tx => {
+        const ownership = and(eq(endgameChallenges.id, input.challengeId),
+          eq(endgameChallenges.userId, ctx.user.id));
+        const [challenge] = await tx.select().from(endgameChallenges).where(ownership).for("update");
+        if (!challenge) throw new TRPCError({ code: "NOT_FOUND", message: "Desafio não encontrado." });
+        const [position] = await tx.select().from(endgamePositions)
+          .where(eq(endgamePositions.id, challenge.endgamePositionId)).limit(1);
+        if (!position) throw new TRPCError({ code: "NOT_FOUND", message: "Posição não encontrada." });
 
-      if (challenge.length === 0) {
-        throw new Error('Challenge not found');
-      }
-
-      // Create attempt record
-      const attemptResult = await db.insert(endgameAttempts).values({
-        challengeId: input.challengeId,
-        pgn: input.pgn,
-        result: input.result,
-        movesPlayed: input.movesPlayed,
-        score: input.score,
-        analysis: input.analysis,
+        const grade = gradeEndgameAttempt(position.fen, position.objective, input.pgn);
+        const [attempt] = await tx.insert(endgameAttempts).values({
+          challengeId: challenge.id,
+          pgn: input.pgn,
+          result: grade.result,
+          movesPlayed: grade.movesPlayed,
+          score: grade.score,
+        });
+        const now = new Date();
+        const bestScore = Math.max(challenge.bestScore ?? 0, grade.score);
+        await tx.update(endgameChallenges).set({
+          attempts: (challenge.attempts ?? 0) + 1,
+          bestScore,
+          solved: Boolean(challenge.solved || grade.solved),
+          solvedAt: challenge.solvedAt ?? (grade.solved ? now : null),
+          lastAttemptAt: now,
+        }).where(ownership);
+        return { attemptId: attempt.insertId, solved: grade.solved, bestScore };
       });
-
-      // Update challenge stats
-      const isSolved = input.result === 'win';
-      const newBestScore = Math.max(challenge[0].bestScore || 0, input.score);
-
-      await db
-        .update(endgameChallenges)
-        .set({
-          attempts: (challenge[0].attempts || 0) + 1,
-          bestScore: newBestScore,
-          solved: isSolved,
-          solvedAt: isSolved ? new Date() : challenge[0].solvedAt,
-          lastAttemptAt: new Date(),
-        })
-        .where(eq(endgameChallenges.id, input.challengeId));
-
-      return {
-        attemptId: (attemptResult as any).insertId || 0,
-        solved: isSolved,
-        bestScore: newBestScore,
-      };
     }),
 
   // Get attempt history for a challenge
   getAttempts: protectedProcedure
-    .input(z.number())
+    .input(positiveId)
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error('Database not available');
