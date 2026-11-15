@@ -2,6 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+    <!-- CSP -->
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#262522" />
     <title>Chess • Seu espaço de xadrez</title>
@@ -123,28 +124,28 @@
             <div class="controls" aria-label="Navegar pelos lances">
               <button
                 id="first-move"
-                onclick="go(0)"
+
                 aria-label="Primeiro lance"
                 title="Início (Home)"
               >
                 ⏮</button
               ><button
                 id="previous-move"
-                onclick="goBack()"
+
                 aria-label="Lance anterior"
                 title="Lance anterior (←)"
               >
                 ◀</button
               ><button
                 id="next-move"
-                onclick="goNext()"
+
                 aria-label="Próximo lance"
                 title="Próximo lance (→)"
               >
                 ▶</button
               ><button
                 id="last-move"
-                onclick="goEnd()"
+
                 aria-label="Último lance"
                 title="Final (End)"
               >
@@ -153,11 +154,11 @@
             </div>
             <button
               class="subtle"
-              onclick="flipBoard()"
+              id="flip-board"
               title="Girar tabuleiro"
             >
               ↻ Girar</button
-            ><button class="pri" onclick="newGame()">＋ Nova partida</button>
+            ><button class="pri" id="new-game">＋ Nova partida</button>
           </div>
           <div id="status" role="status"></div>
           <div
@@ -233,7 +234,7 @@
             </div>
             <div id="pvline"></div>
             <div id="coach" aria-live="polite" aria-atomic="true"></div>
-            <button class="pri analyze-button" onclick="analyze(true)">
+            <button class="pri analyze-button" id="analyze-now">
               Analisar esta posição
             </button>
             <p class="help-text">
@@ -256,10 +257,9 @@
               type="search"
               id="q"
               placeholder="Jogador, evento ou abertura…"
-              oninput="renderDB()"
             />
             <div class="row">
-              <button onclick="document.getElementById('dbfile').click()">
+              <button id="open-db-file">
                 ＋ Carregar base PGN</button
               ><input type="file" id="dbfile" accept=".pgn" hidden /><span
                 class="muted"
@@ -279,7 +279,6 @@
                 aria-controls="player1-suggestions"
                 autocomplete="off"
                 spellcheck="false"
-                oninput="renderDB()"
               /><ul id="player1-suggestions" class="player-suggestions" role="listbox" aria-label="Sugestões para jogador 1" hidden></ul></div>
               <label for="player2">Jogador 2 (qualquer cor)</label
               ><div class="player-autocomplete"><input
@@ -292,15 +291,14 @@
                 aria-controls="player2-suggestions"
                 autocomplete="off"
                 spellcheck="false"
-                oninput="renderDB()"
               /><ul id="player2-suggestions" class="player-suggestions" role="listbox" aria-label="Sugestões para jogador 2" hidden></ul></div>
               <small class="muted">Digite duas letras para ver os jogadores da base. Use ↑ ↓ e Enter ou clique em um nome.</small>
               <label for="opening-filter">Abertura</label
-              ><select id="opening-filter" onchange="renderDB()">
+              ><select id="opening-filter">
                 <option value="">Todas as aberturas</option>
               </select>
               <label for="defense-filter">Defesa</label
-              ><select id="defense-filter" onchange="renderDB()">
+              ><select id="defense-filter">
                 <option value="">Todas as defesas</option>
               </select>
               <button id="clear-filters">Limpar filtros</button>
@@ -343,9 +341,9 @@
               placeholder="Ex.: Meu estudo da Siciliana"
             />
             <div class="row">
-              <button class="pri" onclick="saveGame()">
+              <button class="pri" id="save-game">
                 Salvar partida completa</button
-              ><button onclick="downloadSaved()">Baixar histórico PGN</button>
+              ><button id="download-saved">Baixar histórico PGN</button>
             </div>
             <p class="help-text">
               Mesmo ao revisar um lance anterior, a partida principal é salva
@@ -369,14 +367,14 @@
               spellcheck="false"
             ></textarea>
             <div class="row">
-              <button class="pri" onclick="importBox()">Importar PGN</button
-              ><button onclick="document.getElementById('onefile').click()">
+              <button class="pri" id="import-pgn">Importar PGN</button
+              ><button id="open-pgn-file">
                 Abrir arquivo</button
               ><input type="file" id="onefile" accept=".pgn" hidden />
             </div>
             <div class="row">
-              <button onclick="exportPGN()">Exportar posição exibida</button
-              ><button onclick="downloadPGN()">Baixar PGN exibido</button>
+              <button id="export-pgn">Exportar posição exibida</button
+              ><button id="download-pgn">Baixar PGN exibido</button>
             </div>
             <p class="help-text">
               A exportação inclui os lances até a posição exibida. Para guardar
@@ -430,7 +428,7 @@
         <span
           >Stockfish 10.0.2 ·
           <a
-            href="https://github.com/niklasf/stockfish.js"
+            href="https://github.com/niklasf/stockfish.js/tree/e105072e84cf8ee5dd5219e2c5be29c3b8bf8a5a"
             target="_blank"
             rel="noopener"
             >Código-fonte GPLv3</a
@@ -439,5 +437,6 @@
       </footer>
     </main>
     <!-- APPLICATION -->
+    <!-- STOCKFISH LICENSE -->
   </body>
 </html>

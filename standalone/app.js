@@ -1125,7 +1125,26 @@ $("train-position").onclick = () => {
   render();
   notice("Treino iniciado a partir da posição selecionada.");
 };
-engine.init();
+const buttons = {
+  "first-move": () => go(0),
+  "previous-move": goBack,
+  "next-move": goNext,
+  "last-move": goEnd,
+  "flip-board": flipBoard,
+  "new-game": newGame,
+  "analyze-now": () => analyze(true),
+  "open-db-file": () => $("dbfile").click(),
+  "save-game": saveGame,
+  "download-saved": downloadSaved,
+  "import-pgn": importBox,
+  "open-pgn-file": () => $("onefile").click(),
+  "export-pgn": exportPGN,
+  "download-pgn": downloadPGN,
+};
+for (const [id, action] of Object.entries(buttons)) $(id).addEventListener("click", action);
+for (const id of ["q", "player1", "player2"]) $(id).addEventListener("input", () => renderDB());
+for (const id of ["opening-filter", "defense-filter"]) $(id).addEventListener("change", () => renderDB());
+engine.init(chessStockfishRuntime);
 window.addEventListener("pagehide", () => {
   disposed = true;
   pausePreview();

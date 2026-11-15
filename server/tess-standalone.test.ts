@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { JSDOM, VirtualConsole } from 'jsdom';
@@ -11,7 +12,11 @@ let html: string;
 beforeAll(() => { execFileSync(process.execPath, ['scripts/build-tess.mjs']); html=readFileSync('dist/tess/index.html','utf8'); });
 function app(legacy?: object[], blockedWorkers=false) {
   const errors: Error[]=[];const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e));
-  const dom=new JSDOM(html,{url:'https://xadrez-stockfish.tess.page',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
+  const htmlForTest = html.replace(
+    "function chessStockfishRuntime(postMessage, close, setTimeout, clearTimeout) {",
+    "function chessStockfishRuntime(postMessage, close, setTimeout, clearTimeout) { throw new Error('Test: engine unavailable');"
+  );
+  const dom=new JSDOM(htmlForTest,{url:'https://xadrez-stockfish.tess.page',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
     Object.assign(w,{Response,DecompressionStream,TextDecoder,TextEncoder});
     w.fetch=vi.fn().mockRejectedValue(new Error('offline'));
     w.Worker=class { constructor(){if(blockedWorkers)throw new w.DOMException('Blocked by hosting CSP','SecurityError');} terminate(){} postMessage(){} } as any;
@@ -25,6 +30,14 @@ function app(legacy?: object[], blockedWorkers=false) {
   return {dom,document,errors,click,square,close:()=>{dom.window.dispatchEvent(new dom.window.Event('pagehide'));dom.window.close();}};
 }
 describe('single-file Tess export',()=>{
+  it('authorizes only its exact script with CSP and avoids inline event handlers', () => {
+    const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+    expect(script).toBeTruthy();
+    const hash = createHash('sha256').update(script!).digest('base64');
+    const htmlWithoutScript = html.replace(script!, '');
+    expect(htmlWithoutScript).toContain(`script-src 'sha256-${hash}'`);
+    expect(htmlWithoutScript).not.toMatch(/unsafe-eval|\son(?:click|input|change)=/i);
+  });
   it('new game replies with a legal bot move even offline',async()=>{
     const a=app();try{a.dom.window.newGame();a.square('e2');a.square('e4');
     await new Promise(r=>setTimeout(r,1300));
@@ -99,7 +112,7 @@ describe('single-file Tess export',()=>{
       expect(a.errors).toEqual([]);
     }finally{a.close();}
   });
-  it('produces alternatives when hosting blocks Workers and the CDN is offline',async()=>{
+  it('produces alternatives when the bundled engine is unavailable',async()=>{
     const a=app(undefined,true);
     try {
       await new Promise(resolve=>setTimeout(resolve,650));
@@ -309,7 +322,7 @@ describe('Stockfish search synchronization',()=>{
 describe('Stockfish without Workers',()=>{
   it('keeps engine globals private and delivers UCI messages asynchronously',async()=>{
     const original=globalThis.onmessage;
-    const port=createInlineStockfish('var Module={};onmessage=e=>postMessage(e.data+"ok");');
+    const port=createInlineStockfish(postMessage => data => postMessage(data + 'ok'));
     const output=vi.fn();port.onmessage=output;
     port.postMessage('uci');expect(output).not.toHaveBeenCalled();
     await new Promise(resolve=>setTimeout(resolve,30));
@@ -317,7 +330,10 @@ describe('Stockfish without Workers',()=>{
     expect(globalThis.onmessage).toBe(original);port.terminate();
   });
   it('cancels queued commands and engine timers on disposal',async()=>{
-    const port=createInlineStockfish('setTimeout(()=>postMessage("late"),15);onmessage=e=>postMessage(e.data);');
+    const port=createInlineStockfish((postMessage, _close, schedule) => {
+      schedule(() => postMessage("late"), 15);
+      return () => {};
+    });
     const output=vi.fn();port.onmessage=output;port.postMessage('uci');port.terminate();
     await new Promise(resolve=>setTimeout(resolve,30));expect(output).not.toHaveBeenCalled();
   });

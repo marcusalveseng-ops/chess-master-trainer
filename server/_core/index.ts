@@ -33,6 +33,17 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   app.disable("x-powered-by");
+  app.use((_req, res, next) => {
+    res.set({
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+    });
+    if (process.env.NODE_ENV === "production") {
+      res.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+    }
+    next();
+  });
   const allowApi = createRequestBudget(120, 60_000);
   const allowTotalApi = createRequestBudget(1500, 60_000);
   // There is no object-ownership record in this application.
